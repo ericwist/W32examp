@@ -13,7 +13,6 @@
 #include <string>
 #include <vector>
 #include <list>
-//#include <process.h>
 #include <processthreadsapi.h>
 
 int GetDirRequestorLoad( WCHAR *FileName, size_t size );
@@ -28,10 +27,8 @@ void CompareFilesSlow(std::list<CFileListItem>& filesList, std::list<CFileListIt
 void DumpUniqueFiles(std::list<CFileListItem>& filesList);
 void DumpUniqueFilesSlow(std::list<CFileListItem>& filesList);
 DWORD Add(const std::wstring& filename, const ULONG& size, const DWORD& lt, const DWORD& ht, std::list<CFileListItem>& filesList);
-DWORD Del(const std::wstring& filename, const ULONG& size, const DWORD& lt, const DWORD& ht, std::list<CFileListItem>& filesList);
 DWORD FileInList(const std::wstring& filename, const ULONG& size, const DWORD& lt, const DWORD& ht, std::list<CFileListItem>& filesList);
 DWORD AddSlow(const std::wstring& filename, const ULONG& h1, const ULONG& h2, const ULONG& h3, const ULONG& h4, std::list<CFileListItem>& filesList);
-DWORD DelSlow(const std::wstring& filename, const ULONG& h1, const ULONG& h2, const ULONG& h3, const ULONG& h4, std::list<CFileListItem>& filesList);
 DWORD FileInListSlow(const std::wstring& filename, const ULONG& h1, const ULONG& h2, const ULONG& h3, const ULONG& h4, std::list<CFileListItem>& filesList);
 long GetFileSize(std::wstring filename);
 bool GetDirExist(std::wstring dirname);

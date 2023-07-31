@@ -104,7 +104,7 @@ BOOL FastCompare(WCHAR *directory1, WCHAR *directory2) {
     //join threads - bWaitAll=TRUE then it will return WAIT_OBJECT_0(0) to indicate both threads where joined and completed
     while (WAIT_TIMEOUT == (res = WaitForMultipleObjects(2, hThreads, TRUE, 1)))
     {
-        Idle(1);
+        //Idle(1);
     }
     switch (res) {
     case WAIT_OBJECT_0:
@@ -136,7 +136,7 @@ BOOL FastCompare(WCHAR *directory1, WCHAR *directory2) {
     //get end time
     totaltime = GetTickCount() - timestart;
     WCHAR outtime[260] = L"";
-    swprintf(outtime, 260, L"TOTAL MILLISECOMDS TIME FOR FAST OPERATION IS: %lu", totaltime);
+    swprintf(outtime, 260, L"TOTAL MILLISECONDS TIME FOR FAST OPERATION IS: %lu", totaltime);
     printToScreen(outtime);
     return TRUE;
 }
@@ -189,7 +189,7 @@ BOOL SlowCompare(WCHAR* directory1, WCHAR* directory2) {
     //join threads - bWaitAll=TRUE then it will return WAIT_OBJECT_0(0) to indicate both threads where joined and completed
     while (WAIT_TIMEOUT == (res = WaitForMultipleObjects(2, hThreads, TRUE, 1)))
     {
-        Idle(1);
+        //Idle(1);
     }
     switch (res) {
     case WAIT_OBJECT_0:
@@ -220,7 +220,7 @@ BOOL SlowCompare(WCHAR* directory1, WCHAR* directory2) {
     //get end time
     totaltime = GetTickCount() - timestart;
     WCHAR outtime[260] = L"";
-    swprintf(outtime, 260, L"TOTAL MILLISECOMDS TIME FOR SLOW OPERATION IS: %lu", totaltime);
+    swprintf(outtime, 260, L"TOTAL MILLISECONDS TIME FOR SLOW OPERATION IS: %lu", totaltime);
     printToScreen(outtime);
     return TRUE;
 }
@@ -233,7 +233,6 @@ BOOL SlowCompare(WCHAR* directory1, WCHAR* directory2) {
 void FindFiles(const std::wstring& directory, std::list<CFileListItem>& filesList)
 {
     std::wstring tmp = directory + L"\\*";
-//    WCHAR dirout[260];
     WIN32_FIND_DATAW file;
  
     HANDLE search_handle = FindFirstFileW(tmp.c_str(), &file);
@@ -246,10 +245,6 @@ void FindFiles(const std::wstring& directory, std::list<CFileListItem>& filesLis
             {
                 if ((!lstrcmpW(file.cFileName, L".")) || (!lstrcmpW(file.cFileName, L"..")))
                     continue;
-//                else {
-//                    swprintf_s(dirout, 260, L"Files in directory: %s\\%s", directory.c_str(), file.cFileName);
-//                    printToScreen(dirout);
-//                }
             }
             tmp = directory + L"\\" + std::wstring(file.cFileName);
             if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
@@ -259,7 +254,6 @@ void FindFiles(const std::wstring& directory, std::list<CFileListItem>& filesLis
             {
                 ULONG sz = 0;
                 if ((sz=GetFileSize(tmp)) > 0) {
-//                    printToScreen(file.cFileName);
                     if (FileInList(file.cFileName, sz, file.ftLastWriteTime.dwLowDateTime, file.ftLastWriteTime.dwHighDateTime, filesList) == ERROR_NOT_FOUND) {
                         Add(file.cFileName, sz, file.ftLastWriteTime.dwLowDateTime, file.ftLastWriteTime.dwHighDateTime, filesList);
                     }
@@ -282,7 +276,6 @@ void FindFiles(const std::wstring& directory, std::list<CFileListItem>& filesLis
 void FindFilesSlow(const std::wstring& directory, std::list<CFileListItem>& filesList)
 {
     std::wstring tmp = directory + L"\\*";
-    //WCHAR dirout[260];
     WIN32_FIND_DATAW file;
     PMSIFILEHASHINFO pFileHash = (PMSIFILEHASHINFO)malloc(sizeof(MSIFILEHASHINFO));
     
@@ -296,10 +289,6 @@ void FindFilesSlow(const std::wstring& directory, std::list<CFileListItem>& file
             {
                 if ((!lstrcmpW(file.cFileName, L".")) || (!lstrcmpW(file.cFileName, L"..")))
                     continue;
-                //else {
-               //     swprintf_s(dirout, 260, L"Files in directory: %s\\%s", directory.c_str(), file.cFileName);
-               //     printToScreen(dirout);
-              //  }
             }
             tmp = directory + L"\\" + std::wstring(file.cFileName);
             if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
@@ -307,7 +296,6 @@ void FindFilesSlow(const std::wstring& directory, std::list<CFileListItem>& file
             }
             else
             {
-                //printToScreen(file.cFileName);
                 memset(pFileHash,0, sizeof(MSIFILEHASHINFO));
                 pFileHash->dwFileHashInfoSize = sizeof(MSIFILEHASHINFO);
                 if (MsiGetFileHashW(tmp.c_str(), 0, pFileHash) == ERROR_SUCCESS) {
@@ -429,10 +417,8 @@ void printToScreen(WCHAR FormattedStr[261])
             int idx = (int)SendMessage(ghListBox, LB_GETCARETINDEX, (WPARAM)0, (LPARAM)0);
             if (idx > 2000)
             {
-               // Idle(100);
                 //clear list box
                 SendMessage(ghListBox, LB_RESETCONTENT, (WPARAM)0, (LPARAM)0);
-              //  Idle(100);
             }
 
             int pos = (int)SendMessage(ghListBox, LB_ADDSTRING, 0, (LPARAM)FormattedStr);
@@ -447,7 +433,6 @@ void printToScreen(WCHAR FormattedStr[261])
 
 DWORD Add(const std::wstring& filename, const ULONG& size, const DWORD& lt, const DWORD& ht, std::list<CFileListItem>& filesList)
 {
-    //WCHAR out[260];
     CFileListItem fileData;
     fileData.SetFilename(filename);
     fileData.SetSize(size);
@@ -455,98 +440,44 @@ DWORD Add(const std::wstring& filename, const ULONG& size, const DWORD& lt, cons
     fileData.SetHighDateTime(ht);
     // push file onto list
     filesList.push_back(fileData);
-    //swprintf_s(out, 260, L"ADDING FILE[%s]::SIZE[%lu]::LASTWRITE[%lu.%lu]", filename.c_str(), size, lt, ht);
-    //printToScreen(out);
 
     return(0);
 }
 
 DWORD AddSlow(const std::wstring& filename, const ULONG& h1, const ULONG& h2, const ULONG& h3, const ULONG& h4, std::list<CFileListItem>& filesList)
 {
-    //WCHAR out[260];
     CFileListItem fileData;
     fileData.SetFilename(filename);
     fileData.SetFileHash(h1, h2, h3, h4);
     // push file onto list
     filesList.push_back(fileData);
-    //swprintf_s(out, 260, L"ADDING FILE[%s]::H1[%lu]::H2[%lu]::H3[%lu]::H4[%lu]", filename.c_str(), h1, h2, h3, h4);
-    //printToScreen(out);
 
     return(0);
 }
 
-DWORD Del(const std::wstring& filename, const ULONG& size, const DWORD& lt, const DWORD& ht, std::list<CFileListItem>& filesList)
-{
-    WCHAR out[260];
-    std::list<CFileListItem>::iterator i;
-    for (i = filesList.begin(); i != filesList.end(); ++i)
-    {
-        if (i->m_Filename == filename && i->m_Size == size && i->m_dwLowDateTime == lt && i->m_dwHighDateTime == ht)
-        {
-            filesList.erase(i);
-            swprintf_s(out, 260, L"*ERASING FILE[%s]::SIZE[%lu]::LASTWRITE[%lu.%lu]", filename.c_str(), size, lt, ht);
-            printToScreen(out);
-            return(ERROR_SUCCESS);
-        }
-    }
-    swprintf_s(out, 260, L"*FILE NOT FOUND IN LIST[%s]::SIZE[%lu]::LASTWRITE[%lu.%lu]", filename.c_str(), size, lt, ht);
-    printToScreen(out);
-    return(ERROR_NOT_FOUND);
-}
-
-DWORD DelSlow(const std::wstring& filename, const ULONG& h1, const ULONG& h2, const ULONG& h3, const ULONG& h4, std::list<CFileListItem>& filesList)
-{
-    WCHAR out[260];
-    std::list<CFileListItem>::iterator i;
-    for (i = filesList.begin(); i != filesList.end(); ++i)
-    {
-        if (i->m_Filename == filename && i->m_dwHash[0] == h1 && i->m_dwHash[1] == h2 && i->m_dwHash[2] == h3 && i->m_dwHash[3] == h4)
-        {
-            filesList.erase(i);
-            swprintf_s(out, 260, L"*ERASING FILE[%s]::H1[%lu]::H2[%lu]::H3[%lu]::H4[%lu]", filename.c_str(), h1, h2, h3, h4);
-            printToScreen(out);
-            return(ERROR_SUCCESS);
-        }
-    }
-    swprintf_s(out, 260, L"*FILE NOT FOUND IN LIST[%s]::H1[%lu]::H2[%lu]::H3[%lu]::H4[%lu]", filename.c_str(), h1, h2, h3, h4);
-    printToScreen(out);
-    return(ERROR_NOT_FOUND);
-}
-
-
 DWORD FileInList(const std::wstring& filename, const ULONG& size, const DWORD& lt, const DWORD& ht, std::list<CFileListItem> &filesList)
 {
-    //WCHAR out[260];
     std::list<CFileListItem>::iterator i;
     for (i = filesList.begin(); i != filesList.end(); ++i)
     {
         if (i->m_Filename == filename && i->m_Size == size && i->m_dwLowDateTime == lt && i->m_dwHighDateTime == ht)
         {
-            //swprintf_s(out, 260, L"FOUND FILE IN LIST[%s]::SIZE[%lu]::LASTWRITE[%lu.%lu]", filename.c_str(), size, lt, ht);
-            //printToScreen(out);
             return(ERROR_SUCCESS);
         }
     }
-    //swprintf_s(out, 260, L"FILE NOT FOUND IN LIST[%s]::SIZE[%lu]::LASTWRITE[%lu.%lu]", filename.c_str(), size, lt, ht);
-    //printToScreen(out);
     return(ERROR_NOT_FOUND);
 }
 
 DWORD FileInListSlow(const std::wstring& filename, const ULONG& h1, const ULONG& h2, const ULONG& h3, const ULONG& h4, std::list<CFileListItem>& filesList)
 {
-    //WCHAR out[260];
     std::list<CFileListItem>::iterator i;
     for (i = filesList.begin(); i != filesList.end(); ++i)
     {
         if (i->m_Filename == filename && i->m_dwHash[0] == h1 && i->m_dwHash[1] == h2 && i->m_dwHash[2] == h3 && i->m_dwHash[3] == h4)
         {
-            //swprintf_s(out, 260, L"FOUND FILE IN LIST[%s]::H1[%lu]::H2[%lu]::H3[%lu]::H4[%lu]", filename.c_str(), h1, h2, h3, h4);
-            //printToScreen(out);
             return(ERROR_SUCCESS);
         }
     }
-   // swprintf_s(out, 260, L"FILE NOT FOUND IN LIST[%s]::H1[%lu]::H2[%lu]::H3[%lu]::H4[%lu]", filename.c_str(), h1, h2, h3, h4);
-   // printToScreen(out);
     return(ERROR_NOT_FOUND);
 }
 
