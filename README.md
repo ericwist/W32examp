@@ -32,3 +32,12 @@ Slow Compare:
 6. Show Number of unique files found and the time in milliseconds to do it.
 7. if "Show unique files" is selected before running, the file will print out in list box to include file name, and the file Hashes (4 DWORDS X 32 = 128bit hash).
 
+Build:
+=====
+
+To build with/wihtout threads use this define:
+
+#define THREADED_CALLS in 'util.cpp'
+
+Fast and Slow compare are available through the buttons on screen.
+

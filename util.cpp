@@ -77,17 +77,17 @@ BOOL FastCompare(WCHAR *directory1, WCHAR *directory2) {
     //START THREADS
     //start time
     DWORD totaltime = 0;
-    DWORD timestart = GetTickCount(); 
+    DWORD timestart = GetTickCount();
 #ifdef THREADED_CALLS
     DWORD res;
     WCHAR* param = directory1;
     WCHAR* pparam = param;
     HANDLE hTraverseOne = (HANDLE)CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)TraverseDirectory1, (void*)pparam, CREATE_SUSPENDED, NULL);
-
+    
     param = directory2;
     pparam = param;
     HANDLE hTraverseTwo = (HANDLE)CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)TraverseDirectory2, (void*)pparam, CREATE_SUSPENDED, NULL);
-
+    
     HANDLE hThreads[2];
     hThreads[0] = hTraverseOne;
     hThreads[1] = hTraverseTwo;
@@ -278,7 +278,7 @@ void FindFilesSlow(const std::wstring& directory, std::list<CFileListItem>& file
     std::wstring tmp = directory + L"\\*";
     WIN32_FIND_DATAW file;
     PMSIFILEHASHINFO pFileHash = (PMSIFILEHASHINFO)malloc(sizeof(MSIFILEHASHINFO));
-    
+    WCHAR err[260];
     HANDLE search_handle = FindFirstFileW(tmp.c_str(), &file);
     if (search_handle != INVALID_HANDLE_VALUE)
     {
@@ -298,10 +298,23 @@ void FindFilesSlow(const std::wstring& directory, std::list<CFileListItem>& file
             {
                 memset(pFileHash,0, sizeof(MSIFILEHASHINFO));
                 pFileHash->dwFileHashInfoSize = sizeof(MSIFILEHASHINFO);
-                if (MsiGetFileHashW(tmp.c_str(), 0, pFileHash) == ERROR_SUCCESS) {
+                UINT res = MsiGetFileHashW(tmp.c_str(), 0, pFileHash);
+                if (res == ERROR_SUCCESS) {
                     if (FileInListSlow(file.cFileName, pFileHash->dwData[0], pFileHash->dwData[2], pFileHash->dwData[3], pFileHash->dwData[3], filesList) == ERROR_NOT_FOUND) {
                         AddSlow(file.cFileName, pFileHash->dwData[0], pFileHash->dwData[2], pFileHash->dwData[3], pFileHash->dwData[3], filesList);
                     }
+                }
+                else if (res == ERROR_FILE_NOT_FOUND) {
+                    swprintf_s(err, 260, L"FILE[%s] NOT FOUND...", file.cFileName);
+                    printToScreen(err);
+                }
+                else if (res == ERROR_ACCESS_DENIED) {
+                    swprintf_s(err, 260, L"UNABLE TO ACCESS FILE[%s]...", file.cFileName);
+                    printToScreen(err);
+                }
+                else if (res == E_FAIL) {
+                    swprintf_s(err, 260, L"UNKNOWN FAILURE ACCESSING FILE[%s]...", file.cFileName);
+                    printToScreen(err);
                 }
             }
         } while (FindNextFileW(search_handle, &file));
