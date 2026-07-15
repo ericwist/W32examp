@@ -88,6 +88,23 @@ BOOL FastCompare(WCHAR *directory1, WCHAR *directory2) {
     pparam = param;
     HANDLE hTraverseTwo = (HANDLE)CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)TraverseDirectory2, (void*)pparam, CREATE_SUSPENDED, NULL);
     
+    // Attempt to place the two threads on different logical processors for better parallelism.
+    // If the machine has fewer than 2 processors, affinity will not be changed.
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    DWORD_PTR affinity1 = 1ULL << 0; // logical processor 0
+    DWORD_PTR affinity2 = 1ULL << 1; // logical processor 1
+    if (si.dwNumberOfProcessors < 2) {
+        affinity2 = affinity1; // fallback: same processor if only one available
+    }
+
+    if (hTraverseOne != NULL) {
+        SetThreadAffinityMask(hTraverseOne, affinity1);
+    }
+    if (hTraverseTwo != NULL) {
+        SetThreadAffinityMask(hTraverseTwo, affinity2);
+    }
+
     HANDLE hThreads[2];
     hThreads[0] = hTraverseOne;
     hThreads[1] = hTraverseTwo;
@@ -172,6 +189,22 @@ BOOL SlowCompare(WCHAR* directory1, WCHAR* directory2) {
     param = directory2;
     pparam = param;
     HANDLE hTraverseTwo = (HANDLE)CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)TraverseDirectory2Slow, (void*)pparam, CREATE_SUSPENDED, NULL);
+
+    // Attempt to place the two threads on different logical processors for better parallelism.
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    DWORD_PTR affinity1 = 1ULL << 0; // logical processor 0
+    DWORD_PTR affinity2 = 1ULL << 1; // logical processor 1
+    if (si.dwNumberOfProcessors < 2) {
+        affinity2 = affinity1;
+    }
+
+    if (hTraverseOne != NULL) {
+        SetThreadAffinityMask(hTraverseOne, affinity1);
+    }
+    if (hTraverseTwo != NULL) {
+        SetThreadAffinityMask(hTraverseTwo, affinity2);
+    }
 
     HANDLE hThreads[2];
     hThreads[0] = hTraverseOne;
