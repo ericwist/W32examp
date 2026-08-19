@@ -30,6 +30,7 @@ HWND hButtonWin2;
 HWND hButtonWinFC;
 HWND hButtonWinSC;
 HWND hButtonWinCBOX;
+HWND hButtonWinStop;
 HWND hListBox;
 HWND ghListBox = 0;
 WCHAR szDirectory1[MAX_PATH];
@@ -37,6 +38,7 @@ WCHAR szDirectory2[MAX_PATH];
 WCHAR szExt[100] = L"*";
 WCHAR szType[100] = L"";
 BOOL isCheckShowFiles = FALSE;
+volatile BOOL gbCancelOperation = FALSE;
 int windowX, windowY, windowWidth, windowHeight, editBoxWidth, editBoxHeight, listBoxHeight;
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -246,6 +248,12 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
        CW_USEDEFAULT, CW_USEDEFAULT,
        hWnd, (HMENU)ID_FILE_SHOWUNIQUEFILES, hInstance, nullptr);
 
+   hButtonWinStop = CreateWindowEx(WS_EX_CLIENTEDGE, L"BUTTON", L"Stop",
+       WS_CHILD | WS_VISIBLE,
+       CW_USEDEFAULT, CW_USEDEFAULT,
+       CW_USEDEFAULT, CW_USEDEFAULT,
+       hWnd, (HMENU)ID_FILE_STOPCANCELOP, hInstance, nullptr);
+
    hListBox = CreateWindowEx(WS_EX_CLIENTEDGE, L"LISTBOX", L"",
        WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | ES_AUTOVSCROLL | WS_VSCROLL,
        CW_USEDEFAULT, CW_USEDEFAULT, 
@@ -288,6 +296,10 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    SendMessage(hButtonWinCBOX, BM_SETCHECK, (WPARAM)0, (LPARAM)ID_FILE_SHOWUNIQUEFILES);
    isCheckShowFiles = FALSE;
 
+   ShowWindow(hButtonWinStop, nCmdShow);
+   SetWindowPos(hButtonWinStop, NULL, 380, (editBoxHeight * 2) + 55, 160, 25, SWP_SHOWWINDOW);
+   UpdateWindow(hButtonWinStop);
+
    EnableWindow(hListBox, true);
    ShowWindow(hListBox, SW_SHOW);
    SetWindowPos(hListBox, NULL, 20, (editBoxHeight * 4) + 55, editBoxWidth, listBoxHeight, SWP_SHOWWINDOW);
@@ -306,6 +318,7 @@ void DisableMenusAndButtons(HWND hWnd) {
     EnableWindow(hButtonWinFC, false);
     EnableWindow(hButtonWinSC, false);
     EnableWindow(hButtonWinCBOX, false);
+    EnableWindow(hButtonWinStop, true);  // Keep Stop button ENABLED during operations
     EnableMenuItem(GetMenu(hWnd), ID_FILE_FINDDIRECTORYONE, MF_BYCOMMAND | MF_DISABLED | MF_GRAYED);
     EnableMenuItem(GetMenu(hWnd), ID_FILE_FINDDIRECTORYTWO, MF_BYCOMMAND | MF_DISABLED | MF_GRAYED);
     EnableMenuItem(GetMenu(hWnd), ID_FILE_RUNFASTCOMPARE, MF_BYCOMMAND | MF_DISABLED | MF_GRAYED);
@@ -319,6 +332,7 @@ void EnableMenusAndButtons(HWND hWnd) {
     EnableWindow(hButtonWinFC, true);
     EnableWindow(hButtonWinSC, true);
     EnableWindow(hButtonWinCBOX, true);
+    EnableWindow(hButtonWinStop, false);  // Disable Stop button when not running
     EnableMenuItem(GetMenu(hWnd), ID_FILE_FINDDIRECTORYONE, MF_BYCOMMAND | MF_ENABLED);
     EnableMenuItem(GetMenu(hWnd), ID_FILE_FINDDIRECTORYTWO, MF_BYCOMMAND | MF_ENABLED);
     EnableMenuItem(GetMenu(hWnd), ID_FILE_RUNFASTCOMPARE, MF_BYCOMMAND | MF_ENABLED);
@@ -367,6 +381,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case ID_FILE_RUNFASTCOMPARE:
             {
                 DisableMenusAndButtons(hWnd);
+                WCHAR startMsg[260] = L"Starting fast comparison... please wait...";
+                printToScreen(startMsg);
                 SendMessage(hEditWin, WM_GETTEXT, 260, (LPARAM)szDirectory1);
                 SendMessage(hEditWin2, WM_GETTEXT, 260, (LPARAM)szDirectory2);
                 if (BST_CHECKED == SendMessage(hButtonWinCBOX, BM_GETCHECK, 0, 0)) {
@@ -382,6 +398,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case ID_FILE_RUNSLOWCOMPARE:
             {
                 DisableMenusAndButtons(hWnd);
+                WCHAR startMsg[260] = L"Starting slow comparison... please wait...";
+                printToScreen(startMsg);
                 SendMessage(hEditWin, WM_GETTEXT, 260, (LPARAM)szDirectory1);
                 SendMessage(hEditWin2, WM_GETTEXT, 260, (LPARAM)szDirectory2);
                 if (BST_CHECKED == SendMessage(hButtonWinCBOX, BM_GETCHECK, 0, 0)) {
@@ -408,6 +426,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     }
                 }
                 //EnableMenusAndButtons(hWnd);
+            }
+            break;
+            case ID_FILE_STOPCANCELOP:
+            {
+                gbCancelOperation = TRUE;
+                WCHAR stopMsg[260] = L"Stop requested - canceling current operation...";
+                printToScreen(stopMsg);
             }
             break;
             case IDM_ABOUT:

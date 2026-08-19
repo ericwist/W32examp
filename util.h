@@ -32,6 +32,7 @@ DWORD AddSlow(const std::wstring& filename, const ULONG& h1, const ULONG& h2, co
 DWORD FileInListSlow(const std::wstring& filename, const ULONG& h1, const ULONG& h2, const ULONG& h3, const ULONG& h4, std::list<CFileListItem>& filesList);
 long GetFileSize(std::wstring filename);
 bool GetDirExist(std::wstring dirname);
+extern volatile BOOL gbCancelOperation;  // Flag to cancel current operation
 unsigned int WINAPI TraverseDirectory1(void* parg);
 unsigned int WINAPI TraverseDirectory2(void* parg);
 unsigned int WINAPI TraverseDirectory1Slow(void* parg);
