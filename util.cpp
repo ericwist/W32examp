@@ -17,7 +17,11 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <chrono>
+#include <thread>
 #include <Windows.h>
+#include <fstream>
+#include <mutex>
+#include <queue>
 
 //remark this out to turn off threads
 #define THREADED_CALLS
@@ -29,6 +33,88 @@
 //Declare my list of file objects globally in the file only
 std::list<CFileListItem> FilesUnique;
 std::list<CFileListItem> FilesUniqueDirectory2;
+
+class ThreadSafeLogger {
+private:
+    std::wofstream logFile;
+    std::mutex logMutex;
+    std::queue<std::wstring> messageQueue;
+
+public:
+    ThreadSafeLogger(const std::string& filename) {
+        logFile.open(filename, std::ios::out | std::ios::app);
+    }
+
+    ~ThreadSafeLogger() {
+        close();
+    }
+
+    void log(const std::wstring& message) {
+        std::lock_guard<std::mutex> lock(logMutex);
+        if (logFile.is_open()) {
+            logFile << message << std::endl;
+            logFile.flush();
+        }
+    }
+
+    void close() {
+        std::lock_guard<std::mutex> lock(logMutex);
+        if (logFile.is_open()) {
+            logFile << L"end close!" << std::endl;
+            logFile.close();
+        }
+    }
+};
+
+// Global thread-safe logger instance
+ThreadSafeLogger g_logger("compare.log");
+
+//
+// FUNCTION: SetThreadAffinity(std::thread& thread, unsigned int coreId)
+//
+// PURPOSE: Set thread affinity to run on a specific core (platform-agnostic)
+//
+
+void SetThreadAffinity(std::thread& thread, unsigned int coreId)
+{
+#ifdef _WIN32
+    // Windows implementation
+    DWORD_PTR affinityMask = 1ULL << coreId;
+    if (!SetThreadAffinityMask(thread.native_handle(), affinityMask))
+    {
+        g_logger.log(L"WARNING: Failed to set thread affinity for core " + std::to_wstring(coreId));
+    }
+#elif defined(__linux__)
+    // Linux implementation using pthread
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(coreId, &cpuset);
+    int result = pthread_setaffinity_np(thread.native_handle(), sizeof(cpu_set_t), &cpuset);
+    if (result != 0)
+    {
+        g_logger.log(L"WARNING: Failed to set thread affinity for core " + std::to_wstring(coreId));
+    }
+#elif defined(__APPLE__)
+    // macOS implementation using thread_policy
+    // macOS doesn't provide direct cpu affinity API like Linux/Windows
+    // This is a best-effort approach using thread_policy_set
+    g_logger.log(L"NOTE: macOS does not support direct thread affinity");
+#else
+    // Other platforms
+    g_logger.log(L"NOTE: Thread affinity not supported on this platform");
+#endif
+}
+
+//
+// FUNCTION: GetCoreCount()
+//
+// PURPOSE: Get the number of available CPU cores
+//
+unsigned int GetCoreCount()
+{
+    return std::thread::hardware_concurrency();
+}
+
 //
 //   FUNCTION: GetDirRequestorLoad( WCHAR *Path, size_t size )
 //
@@ -72,20 +158,16 @@ BOOL FastCompare(WCHAR *directory1, WCHAR *directory2) {
     // Reset cancellation flag at start
     gbCancelOperation = FALSE;
 
-    WCHAR out[260];
     if (!GetDirExist(directory1)) {
-        swprintf_s(out, 260, L"Directory does NOT exist: %s", directory1);
-        printToScreen(out);
+        g_logger.log(std::wstring(L"Directory does NOT exist: ") + directory1);
         return FALSE;
     }
     if (!GetDirExist(directory2)) {
-        swprintf_s(out, 260, L"Directory does NOT exist: %s", directory2);
-        printToScreen(out);
+        g_logger.log(std::wstring(L"Directory does NOT exist: ") + directory2);
         return FALSE;
     }
     if (wcscmp(directory1, directory2) == 0) {
-        WCHAR msg1[260] = L"Directory 1 and Directory 2 are the same, no need to compare";
-        printToScreen(msg1);
+        g_logger.log(L"Directory 1 and Directory 2 are the same, no need to compare");
         return FALSE;
     }
     FilesUnique.clear();
@@ -94,72 +176,32 @@ BOOL FastCompare(WCHAR *directory1, WCHAR *directory2) {
     DWORD totaltime = 0;
     DWORD timestart = GetTickCount();
 #ifdef THREADED_CALLS
-    DWORD res;
-    WCHAR* param = directory1;
-    WCHAR* pparam = param;
-    HANDLE hTraverseOne = (HANDLE)CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)TraverseDirectory1, (void*)pparam, CREATE_SUSPENDED, NULL);
+    try {
+        unsigned int coreCount = GetCoreCount();
+        g_logger.log(L"Available CPU cores: " + std::to_wstring(coreCount));
 
-    param = directory2;
-    pparam = param;
-    HANDLE hTraverseTwo = (HANDLE)CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)TraverseDirectory2, (void*)pparam, CREATE_SUSPENDED, NULL);
-    if (hTraverseOne == NULL || hTraverseTwo == NULL) {
-        return FALSE;
-    }
+        // Create threads using std::thread
+        std::thread thread1(FindFiles, std::wstring(directory1), std::ref(FilesUnique));
+        std::thread thread2(FindFiles, std::wstring(directory2), std::ref(FilesUniqueDirectory2));
 
-    // Attempt to place the two threads on different logical processors for better parallelism.
-    // If the machine has fewer than 2 processors, affinity will not be changed.
-    SYSTEM_INFO si;
-    GetSystemInfo(&si);
-    DWORD_PTR affinity1 = 1ULL << 0; // logical processor 0
-    DWORD_PTR affinity2 = 1ULL << 1; // logical processor 1
-    if (si.dwNumberOfProcessors < 2) {
-        affinity2 = affinity1; // fallback: same processor if only one available
-    }
+        // Set thread affinity to different cores if available
+        if (coreCount >= 2) {
+            SetThreadAffinity(thread1, 0);  // Core 0
+            SetThreadAffinity(thread2, 1);  // Core 1
+            g_logger.log(L"Threads pinned to cores 0 and 1");
+        }
+        else {
+            g_logger.log(L"Only 1 core available; threads will share the same core");
+        }
 
-    if (hTraverseOne != NULL) {
-        SetThreadAffinityMask(hTraverseOne, affinity1);
-    }
-    if (hTraverseTwo != NULL) {
-        SetThreadAffinityMask(hTraverseTwo, affinity2);
-    }
+        // Wait for both threads to complete
+        thread1.join();
+        thread2.join();
 
-    HANDLE hThreads[2];
-    hThreads[0] = hTraverseOne;
-    hThreads[1] = hTraverseTwo;
-    ResumeThread(hTraverseOne);
-    ResumeThread(hTraverseTwo);
-
-    WCHAR outth1a[260] = L"THREADS ONE ABANDONED========================================";
-    WCHAR outth2a[260] = L"THREADS TWO ABANDONED========================================";
-    WCHAR outth1[260] =  L"THREADS FINISHED JOINED to 0=================================";
-    WCHAR outth2[260] =  L"THREADS FINISHED JOINED to 1=================================";
-    WCHAR outerr[260] =  L"FATAL THREAD ERROR===========================================";
-    WCHAR outwait[260] = L"*THREADS RUNNING=============================================";
-    WCHAR outfin[260] =  L"*THREADS FINISHED============================================";
-    //join threads - bWaitAll=TRUE then it will return WAIT_OBJECT_0(0) to indicate both threads where joined and completed
-    while (WAIT_TIMEOUT == (res = WaitForMultipleObjects(2, hThreads, TRUE, 1)))
-    {
-        Idle(1);  // Process messages so Stop button clicks are received
+        g_logger.log(L"THREADS FINISHED JOINED=================================");
     }
-    switch (res) {
-    case WAIT_OBJECT_0:
-#if _DEBUG
-        printToScreen(outth1);
-#endif
-        break;
-    case (WAIT_OBJECT_0 + 1):
-#if _DEBUG
-        printToScreen(outth2);
-#endif
-        break;
-    case WAIT_FAILED:
-        printToScreen(outerr);
-        return FALSE;
-    case WAIT_ABANDONED_0:
-        printToScreen(outth1a);
-        return FALSE;
-    case (WAIT_ABANDONED_0 + 1):
-        printToScreen(outth2a);
+    catch (const std::exception& e) {
+        g_logger.log(L"FATAL THREAD ERROR===========================================");
         return FALSE;
     }
     //END THREADS
@@ -170,8 +212,7 @@ BOOL FastCompare(WCHAR *directory1, WCHAR *directory2) {
 
     // Check if operation was cancelled
     if (gbCancelOperation) {
-        WCHAR cancelMsg[260] = L"Operation cancelled by user";
-        printToScreen(cancelMsg);
+        g_logger.log(L"Operation cancelled by user");
         FilesUnique.clear();
         FilesUniqueDirectory2.clear();
         gbCancelOperation = FALSE;
@@ -185,9 +226,7 @@ BOOL FastCompare(WCHAR *directory1, WCHAR *directory2) {
     FilesUnique.clear();
     //get end time
     totaltime = GetTickCount() - timestart;
-    WCHAR outtime[260] = L"";
-    swprintf(outtime, 260, L"TOTAL MILLISECONDS TIME FOR FAST OPERATION IS: %lu", totaltime);
-    printToScreen(outtime);
+    g_logger.log(L"TOTAL MILLISECONDS TIME FOR FAST OPERATION IS: " + std::to_wstring(totaltime));
     gbCancelOperation = FALSE;
     return TRUE;
 }
@@ -202,97 +241,48 @@ BOOL SlowCompare(WCHAR* directory1, WCHAR* directory2) {
     // Reset cancellation flag at start
     gbCancelOperation = FALSE;
 
-    WCHAR out[260];
     if (!GetDirExist(directory1)) {
-        swprintf_s(out, 260, L"Directory does NOT exist: %s", directory1);
-        printToScreen(out);
+        g_logger.log(std::wstring(L"Directory does NOT exist: ") + directory1);
         return FALSE;
     }
     if (!GetDirExist(directory2)) {
-        swprintf_s(out, 260, L"Directory does NOT exist: %s", directory2);
-        printToScreen(out);
+        g_logger.log(std::wstring(L"Directory does NOT exist: ") + directory2);
         return FALSE;
     }
     if (wcscmp(directory1, directory2) == 0) {
-        WCHAR msg1[260] = L"Directory 1 and Directory 2 are the same, no need to compare";
-        printToScreen(msg1);
+        g_logger.log(L"Directory 1 and Directory 2 are the same, no need to compare");
         return FALSE;
     }
     FilesUnique.clear();
     DWORD totaltime = 0;
     DWORD timestart = GetTickCount();
 #ifdef THREADED_CALLS
-    //threads
-    DWORD res;
-    WCHAR* param = directory1;
-    WCHAR* pparam = param;
-    HANDLE hTraverseOne = (HANDLE)CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)TraverseDirectory1Slow, (void*)pparam, CREATE_SUSPENDED, NULL);
+    try {
+        unsigned int coreCount = GetCoreCount();
+        g_logger.log(L"Available CPU cores: " + std::to_wstring(coreCount));
 
-    param = directory2;
-    pparam = param;
-    HANDLE hTraverseTwo = (HANDLE)CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)TraverseDirectory2Slow, (void*)pparam, CREATE_SUSPENDED, NULL);
-    if (hTraverseOne == NULL || hTraverseTwo == NULL) {
-        return FALSE;
+        // Create threads using std::thread
+        std::thread thread1(FindFilesSlow, std::wstring(directory1), std::ref(FilesUnique));
+        std::thread thread2(FindFilesSlow, std::wstring(directory2), std::ref(FilesUniqueDirectory2));
+
+        // Set thread affinity to different cores if available
+        if (coreCount >= 2) {
+            SetThreadAffinity(thread1, 0);  // Core 0
+            SetThreadAffinity(thread2, 1);  // Core 1
+            g_logger.log(L"Threads pinned to cores 0 and 1");
+        }
+        else {
+            g_logger.log(L"Only 1 core available; threads will share the same core");
+        }
+
+        // Wait for both threads to complete
+        thread1.join();
+        thread2.join();
+
+        g_logger.log(L"THREADS FINISHED JOINED=================================");
     }
-
-    // Attempt to place the two threads on different logical processors for better parallelism.
-    SYSTEM_INFO si;
-    GetSystemInfo(&si);
-    DWORD_PTR affinity1 = 1ULL << 0; // logical processor 0
-    DWORD_PTR affinity2 = 1ULL << 1; // logical processor 1
-    if (si.dwNumberOfProcessors < 2) {
-        affinity2 = affinity1;
-    }
-
-    if (hTraverseOne != NULL) {
-        SetThreadAffinityMask(hTraverseOne, affinity1);
-    }
-    if (hTraverseTwo != NULL) {
-        SetThreadAffinityMask(hTraverseTwo, affinity2);
-    }
-
-    HANDLE hThreads[2];
-    hThreads[0] = hTraverseOne;
-    hThreads[1] = hTraverseTwo;
-    ResumeThread(hTraverseOne);
-    ResumeThread(hTraverseTwo);
-
-    WCHAR outth1a[260] = L"THREADS ONE ABANDONED========================================";
-    WCHAR outth2a[260] = L"THREADS TWO ABANDONED========================================";
-    WCHAR outth1[260] =  L"THREADS FINISHED JOINED to 0=================================";
-    WCHAR outth2[260] =  L"THREADS FINISHED JOINED to 1=================================";
-    WCHAR outerr[260] =  L"FATAL THREAD ERROR===========================================";
-    WCHAR outwait[260] = L"*THREADS RUNNING=============================================";
-    WCHAR outfin[260] =  L"*THREADS FINISHED============================================";
-    //join threads - bWaitAll=TRUE then it will return WAIT_OBJECT_0(0) to indicate both threads where joined and completed
-    while (WAIT_TIMEOUT == (res = WaitForMultipleObjects(2, hThreads, TRUE, 1)))
-    {
-        Idle(1);  // Process messages so Stop button clicks are received
-    }
-
-    // Close thread handles to prevent resource leak
-    CloseHandle(hTraverseOne);
-    CloseHandle(hTraverseTwo);
-
-    switch (res) {
-    case WAIT_OBJECT_0:
-#if _DEBUG
-        printToScreen(outth1);
-#endif
-        break;
-    case (WAIT_OBJECT_0 + 1):
-#if _DEBUG
-        printToScreen(outth2);
-#endif
-        break;
-    case WAIT_FAILED:
-        printToScreen(outerr);
-        return FALSE;
-    case WAIT_ABANDONED_0:
-        printToScreen(outth1a);
-        return FALSE;
-    case (WAIT_ABANDONED_0 + 1):
-        printToScreen(outth2a);
+    catch (const std::exception& e) {
+        g_logger.log(L"FATAL THREAD ERROR===========================================");
         return FALSE;
     }
 #else
@@ -302,8 +292,7 @@ BOOL SlowCompare(WCHAR* directory1, WCHAR* directory2) {
 
     // Check if operation was cancelled
     if (gbCancelOperation) {
-        WCHAR cancelMsg[260] = L"Operation cancelled by user";
-        printToScreen(cancelMsg);
+        g_logger.log(L"Operation cancelled by user");
         FilesUnique.clear();
         FilesUniqueDirectory2.clear();
         gbCancelOperation = FALSE;
@@ -317,11 +306,8 @@ BOOL SlowCompare(WCHAR* directory1, WCHAR* directory2) {
     FilesUnique.clear();
     //get end time
     totaltime = GetTickCount() - timestart;
-    WCHAR outtime[260] = L"";
-    swprintf(outtime, 260, L"TOTAL MILLISECONDS TIME FOR SLOW OPERATION IS: %lu", totaltime);
-    printToScreen(outtime);
+    g_logger.log(L"TOTAL MILLISECONDS TIME FOR SLOW OPERATION IS: " + std::to_wstring(totaltime));
     gbCancelOperation = FALSE;
-    return TRUE;
     return TRUE;
 }
 
@@ -358,11 +344,7 @@ BOOL CheckMemoryLimit(SIZE_T currentUsage)
     
     if (currentUsage > warningBytes)
     {
-        WCHAR warning[260];
-        swprintf_s(warning, 260, 
-            L"WARNING: Memory usage high (%llu MB). Consider smaller directories.",
-            currentUsage / (1024 * 1024));
-        printToScreen(warning);
+        g_logger.log(L"WARNING: Memory usage high (" + std::to_wstring(currentUsage / (1024 * 1024)) + L" MB). Consider smaller directories.");
     }
     
     return TRUE;
@@ -411,11 +393,7 @@ void FindFiles(const std::wstring& directory, std::list<CFileListItem>& filesLis
                 SIZE_T currentMemory = GetCurrentMemoryUsage();
                 if (!CheckMemoryLimit(currentMemory))
                 {
-                    WCHAR errMsg[260];
-                    swprintf_s(errMsg, 260, 
-                        L"ERROR: Memory limit exceeded (%llu MB). Stopping directory scan.",
-                        currentMemory / (1024 * 1024));
-                    printToScreen(errMsg);
+                    g_logger.log(L"ERROR: Memory limit exceeded (" + std::to_wstring(currentMemory / (1024 * 1024)) + L" MB). Stopping directory scan.");
                     FindClose(search_handle);
                     return;
                 }
@@ -458,9 +436,7 @@ void FindFiles(const std::wstring& directory, std::list<CFileListItem>& filesLis
                 SIZE_T currentMemory = GetCurrentMemoryUsage();
                 if (!CheckMemoryLimit(currentMemory))
                 {
-                    WCHAR errMsg[260];
-                    swprintf_s(errMsg, 260, L"Memory limit reached. Stopped at directory: %s", iter->c_str());
-                    printToScreen(errMsg);
+                    g_logger.log(L"Memory limit reached. Stopped at directory: " + *iter);
                     return;
                 }
             }
@@ -483,12 +459,10 @@ void FindFilesSlow(const std::wstring& directory, std::list<CFileListItem>& file
 
 	if (!pFileHash)
 	{
-		WCHAR err[260]= L"ERROR: Failed to allocate memory for file hash.";
-		printToScreen(err);
+		g_logger.log(L"ERROR: Failed to allocate memory for file hash.");
 		return;
 	}
 
-	WCHAR err[260];
 	HANDLE search_handle = FindFirstFileW(tmp.c_str(), &file);
 
 	if (search_handle != INVALID_HANDLE_VALUE)
@@ -511,10 +485,7 @@ void FindFilesSlow(const std::wstring& directory, std::list<CFileListItem>& file
 				SIZE_T currentMemory = GetCurrentMemoryUsage();
 				if (!CheckMemoryLimit(currentMemory))
 				{
-					swprintf_s(err, 260, 
-						L"ERROR: Memory limit exceeded (%llu MB). Stopping scan.",
-						currentMemory / (1024 * 1024));
-					printToScreen(err);
+					g_logger.log(L"ERROR: Memory limit exceeded (" + std::to_wstring(currentMemory / (1024 * 1024)) + L" MB). Stopping scan.");
 					FindClose(search_handle);
 					free(pFileHash);
 					return;
@@ -547,13 +518,11 @@ void FindFilesSlow(const std::wstring& directory, std::list<CFileListItem>& file
                 }
                 else if (res == ERROR_FILE_NOT_FOUND)
                 {
-                    swprintf_s(err, 260, L"FILE[%s] NOT FOUND...", file.cFileName);
-                    printToScreen(err);
+                    g_logger.log(L"FILE[" + std::wstring(file.cFileName) + L"] NOT FOUND...");
                 }
                 else if (res == ERROR_ACCESS_DENIED)
                 {
-                    swprintf_s(err, 260, L"FILE[%s] ACCESS DENIED...", file.cFileName);
-                    printToScreen(err);
+                    g_logger.log(L"FILE[" + std::wstring(file.cFileName) + L"] ACCESS DENIED...");
                 }
             }
         } while (FindNextFileW(search_handle, &file));
@@ -571,8 +540,7 @@ void FindFilesSlow(const std::wstring& directory, std::list<CFileListItem>& file
                 SIZE_T currentMemory = GetCurrentMemoryUsage();
                 if (!CheckMemoryLimit(currentMemory))
                 {
-                    swprintf_s(err, 260, L"Memory limit reached. Stopped at: %s", iter->c_str());
-                    printToScreen(err);
+                    g_logger.log(L"Memory limit reached. Stopped at: " + *iter);
                     break;
                 }
             }
@@ -586,9 +554,7 @@ void FindFilesSlow(const std::wstring& directory, std::list<CFileListItem>& file
 
 void CompareFiles(std::list<CFileListItem>& filesList, std::list<CFileListItem>& filesListDirectory2) 
 {
-    WCHAR statusMsg[260];
-    swprintf_s(statusMsg, 260, L"Building index of %zu files from directory 2...", filesListDirectory2.size());
-    printToScreen(statusMsg);
+    g_logger.log(L"Building index of " + std::to_wstring(filesListDirectory2.size()) + L" files from directory 2...");
     
     auto startBuild = std::chrono::high_resolution_clock::now();
             
@@ -666,105 +632,107 @@ void CompareFilesSlow(std::list<CFileListItem>& filesList, std::list<CFileListIt
 }
 
 void DumpUniqueFiles(std::list<CFileListItem>& filesList) {
-    WCHAR out[260] = L"===================================== FAST COMPARE DONE============================================";
-    WCHAR outend[260] = L"=================================================================================================";
-    WCHAR endres[260];
 #if _DEBUG
-    printToScreen(out);
+    g_logger.log(L"===================================== FAST COMPARE DONE============================================");
 #endif
     if (isCheckShowFiles == TRUE) {
         int itemCount = 0;
         for (auto i = filesList.begin(); i != filesList.end(); ++i)
         {
-            // Check for cancellation and pump messages every 100 items
+            // Pump messages every 100 items to allow UI updates and Stop button clicks
             if (++itemCount % 100 == 0)
             {
                 Idle(1);  // Process messages to allow Stop button to work
                 if (gbCancelOperation)
                 {
-                    WCHAR cancelMsg[260] = L"Cancelled while displaying files";
-                    printToScreen(cancelMsg);
+                    g_logger.log(L"Cancelled while displaying files");
                     return;
                 }
             }
 
-            swprintf_s(out, 260, L"FILE[%s]::SIZE[%lu]::LASTWRITE[%lu.%lu]", i->m_Filename.c_str(), i->m_Size, i->m_dwLowDateTime, i->m_dwHighDateTime);
-            printToScreen(out);
+            WCHAR out[261] = L"";
+            swprintf_s(out, 261, L"FILE[%s]::SIZE[%lu]::LASTWRITE[%lu.%lu]", 
+                      i->m_Filename.c_str(), i->m_Size, i->m_dwLowDateTime, i->m_dwHighDateTime);
+            g_logger.log(std::wstring(out));
         }
     }
-    swprintf(endres, 260, L"FAST COMPARE END RESULT [%zu] UNIQUE FILES**", filesList.size());
-    printToScreen(endres);
+    
+    WCHAR endres[261] = L"";
+    swprintf_s(endres, 261, L"**FAST COMPARE END RESULT [%zu] UNIQUE FILES**", filesList.size());
+    g_logger.log(std::wstring(endres));
+    
 #if _DEBUG
-    printToScreen(outend);
+    g_logger.log(L"=================================================================================================");
 #endif
 }
 
 void DumpUniqueFilesSlow(std::list<CFileListItem>& filesList) {
-    WCHAR out[260] = L"=====================================SLOW COMPARE DONE============================================";
-    WCHAR outend[260] = L"=================================================================================================";
-    WCHAR endres[260];
-    printToScreen(out);
+#if _DEBUG
+    g_logger.log(L"===================================== FAST COMPARE DONE============================================");
+#endif
+
     if (isCheckShowFiles == TRUE) {
         int itemCount = 0;
         for (auto i = filesList.begin(); i != filesList.end(); ++i)
         {
-            // Check for cancellation and pump messages every 100 items
+            // Pump messages every 100 items to allow UI updates and Stop button clicks
             if (++itemCount % 100 == 0)
             {
                 Idle(1);  // Process messages to allow Stop button to work
                 if (gbCancelOperation)
                 {
-                    WCHAR cancelMsg[260] = L"Cancelled while displaying files";
-                    printToScreen(cancelMsg);
+                    g_logger.log(L"Cancelled while displaying files");
                     return;
                 }
             }
 
-            swprintf_s(out, 260, L"FILE[%s]::H1[%lu]::H2[%lu]::H3[%lu]::H4[%lu]", i->m_Filename.c_str(), i->m_dwHash[0], i->m_dwHash[1], i->m_dwHash[2], i->m_dwHash[3]);
-            printToScreen(out);
+            WCHAR out[261] = L"";
+            swprintf_s(out, 261, L"FILE[%s]::H1[%lu]::H2[%lu]::H3[%lu]::H4[%lu]", 
+                      i->m_Filename.c_str(), i->m_dwHash[0], i->m_dwHash[1], i->m_dwHash[2], i->m_dwHash[3]);
+            g_logger.log(std::wstring(out));
         }
     }
-    swprintf(endres, 260, L"**SLOW COMPARE END RESULT [%zu] UNIQUE FILES**", filesList.size());
-    printToScreen(endres);
+    
+    WCHAR endres[261] = L"";
+    swprintf_s(endres, 261, L"**SLOW COMPARE UNIQUE FILES** : %zu", filesList.size());
+    g_logger.log(std::wstring(endres));
+    
 #if _DEBUG
-    printToScreen(outend);
+    g_logger.log(L"=================================================================================================");
 #endif
 }
-
-
-void printToScreen(WCHAR FormattedStr[261])
-{
-    try
-    {
-        if (ghListBox != (HWND)NULL)
-        {
-            //Force List Box to bottom
-            int max;
-            int min;
-            GetScrollRange(ghListBox, SB_VERT, &min, &max);
-            SetScrollPos(ghListBox, SB_VERT, max, TRUE);
-            SendMessage(ghListBox, WM_VSCROLL, SB_BOTTOM, 0);
-            int count = (int)SendMessage(ghListBox, LB_GETCOUNT, (WPARAM)0, (LPARAM)0);
-            SendMessage(ghListBox, LB_SETCARETINDEX, (WPARAM)(count - 1), (LPARAM)0);
-            UpdateWindow(ghListBox);
-
-            int idx = (int)SendMessage(ghListBox, LB_GETCARETINDEX, (WPARAM)0, (LPARAM)0);
-            if (idx > 2000)
-            {
-                //clear list box
-                SendMessage(ghListBox, LB_RESETCONTENT, (WPARAM)0, (LPARAM)0);
-            }
-
-            int pos = (int)SendMessage(ghListBox, LB_ADDSTRING, 0, (LPARAM)FormattedStr);
-            SendMessage(ghListBox, LB_SETITEMDATA, pos, (LPARAM)0);
-            SendMessage(ghListBox, LB_SETCURSEL, pos, (LPARAM)0);
+/*
+int openLogFile() {
+    if (!logFile.is_open()) {
+       // logFile << L"Compare Log File Created" << std::endl;
+       // logFile.close();
+		logFile.open("compare.log", std::ios::out | std::ios::app);
+        if (logFile.is_open()) {
+            return 0; // Success
         }
     }
-    catch (...)
-    {
+    else if (logFile.is_open()) {
+        logFile << L"Compare Log File Already Open" << std::endl;
+		return 0; // Success
     }
+    return -1; // Failure
 }
 
+void logPrint(const std::wstring str) {
+    // Send log to list box and log file
+    Printf(str);
+    if (logFile.is_open()) {
+        logFile << str << std::endl;
+	}
+}
+
+void closeLogFile() {
+    if (logFile.is_open()) {
+        logFile << L"end close!" << std::endl;
+        logFile.close();
+    }
+}
+*/
 DWORD Add(const std::wstring& filename, const ULONG& size, const DWORD& lt, const DWORD& ht, std::list<CFileListItem>& filesList)
 {
     CFileListItem fileData;
@@ -856,37 +824,6 @@ bool GetDirExist(std::wstring dirname) {
         }
 #endif
     }
-}
-
-// Threads
-// TraverseDirectories - Thread
-//
-unsigned int WINAPI TraverseDirectory1(void* parg)
-{
-    WCHAR* dir = (WCHAR*) parg;
-    FindFiles(dir, FilesUnique);
-    return 0;
-}
-
-unsigned int WINAPI TraverseDirectory2(void* parg)
-{
-    WCHAR* dir = (WCHAR*)parg;
-    FindFiles(dir, FilesUniqueDirectory2);
-    return 0;
-}
-
-unsigned int WINAPI TraverseDirectory1Slow(void* parg)
-{
-    WCHAR* dir = (WCHAR*)parg;
-    FindFilesSlow(dir, FilesUnique);
-    return 0;
-}
-
-unsigned int WINAPI TraverseDirectory2Slow(void* parg)
-{
-    WCHAR* dir = (WCHAR*)parg;
-    FindFilesSlow(dir, FilesUniqueDirectory2);
-    return 0;
 }
 
 // Utility function to convert UTF-8 std::string to std::wstring (UTF-16)

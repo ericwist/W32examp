@@ -502,3 +502,35 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     return (INT_PTR)FALSE;
 }
 
+void printToScreen(WCHAR* FormattedStr)
+{
+    try
+    {
+        if (ghListBox != (HWND)NULL)
+        {
+            //Force List Box to bottom
+            int max;
+            int min;
+            GetScrollRange(ghListBox, SB_VERT, &min, &max);
+            SetScrollPos(ghListBox, SB_VERT, max, TRUE);
+            SendMessage(ghListBox, WM_VSCROLL, SB_BOTTOM, 0);
+            int count = (int)SendMessage(ghListBox, LB_GETCOUNT, (WPARAM)0, (LPARAM)0);
+            SendMessage(ghListBox, LB_SETCARETINDEX, (WPARAM)(count - 1), (LPARAM)0);
+            UpdateWindow(ghListBox);
+
+            int idx = (int)SendMessage(ghListBox, LB_GETCARETINDEX, (WPARAM)0, (LPARAM)0);
+            if (idx > 2000)
+            {
+                //clear list box
+                SendMessage(ghListBox, LB_RESETCONTENT, (WPARAM)0, (LPARAM)0);
+            }
+
+            int pos = (int)SendMessage(ghListBox, LB_ADDSTRING, 0, (LPARAM)FormattedStr);
+            SendMessage(ghListBox, LB_SETITEMDATA, pos, (LPARAM)0);
+            SendMessage(ghListBox, LB_SETCURSEL, pos, (LPARAM)0);
+        }
+    }
+    catch (...)
+    {
+    }
+}

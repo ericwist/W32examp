@@ -81,5 +81,13 @@ private:
 // Memory monitoring functions
 SIZE_T GetCurrentMemoryUsage();
 BOOL CheckMemoryLimit(SIZE_T currentUsage);
+// logging function
+//void logPrint(WCHAR FormattedStr[261]);
+void printToScreen(WCHAR* FormattedStr);
+inline void Printf(const std::wstring& str)
+{
+    printToScreen(const_cast<WCHAR*>(str.c_str()));
+
+};
 
 
