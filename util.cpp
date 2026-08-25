@@ -17,13 +17,14 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <chrono>
+#include <Windows.h>
 
 //remark this out to turn off threads
 #define THREADED_CALLS
 
 //For string conversions
-using convert_type = std::codecvt_utf8<wchar_t>;
-std::wstring_convert<convert_type, wchar_t> converter;
+//using convert_type = std::codecvt_utf8<wchar_t>;
+//std::wstring_convert<convert_type, wchar_t> converter;
 
 //Declare my list of file objects globally in the file only
 std::list<CFileListItem> FilesUnique;
@@ -97,11 +98,14 @@ BOOL FastCompare(WCHAR *directory1, WCHAR *directory2) {
     WCHAR* param = directory1;
     WCHAR* pparam = param;
     HANDLE hTraverseOne = (HANDLE)CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)TraverseDirectory1, (void*)pparam, CREATE_SUSPENDED, NULL);
-    
+
     param = directory2;
     pparam = param;
     HANDLE hTraverseTwo = (HANDLE)CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)TraverseDirectory2, (void*)pparam, CREATE_SUSPENDED, NULL);
-    
+    if (hTraverseOne == NULL || hTraverseTwo == NULL) {
+        return FALSE;
+    }
+
     // Attempt to place the two threads on different logical processors for better parallelism.
     // If the machine has fewer than 2 processors, affinity will not be changed.
     SYSTEM_INFO si;
@@ -139,10 +143,14 @@ BOOL FastCompare(WCHAR *directory1, WCHAR *directory2) {
     }
     switch (res) {
     case WAIT_OBJECT_0:
+#if _DEBUG
         printToScreen(outth1);
+#endif
         break;
     case (WAIT_OBJECT_0 + 1):
+#if _DEBUG
         printToScreen(outth2);
+#endif
         break;
     case WAIT_FAILED:
         printToScreen(outerr);
@@ -223,6 +231,9 @@ BOOL SlowCompare(WCHAR* directory1, WCHAR* directory2) {
     param = directory2;
     pparam = param;
     HANDLE hTraverseTwo = (HANDLE)CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)TraverseDirectory2Slow, (void*)pparam, CREATE_SUSPENDED, NULL);
+    if (hTraverseOne == NULL || hTraverseTwo == NULL) {
+        return FALSE;
+    }
 
     // Attempt to place the two threads on different logical processors for better parallelism.
     SYSTEM_INFO si;
@@ -265,10 +276,14 @@ BOOL SlowCompare(WCHAR* directory1, WCHAR* directory2) {
 
     switch (res) {
     case WAIT_OBJECT_0:
+#if _DEBUG
         printToScreen(outth1);
+#endif
         break;
     case (WAIT_OBJECT_0 + 1):
+#if _DEBUG
         printToScreen(outth2);
+#endif
         break;
     case WAIT_FAILED:
         printToScreen(outerr);
@@ -654,7 +669,9 @@ void DumpUniqueFiles(std::list<CFileListItem>& filesList) {
     WCHAR out[260] = L"===================================== FAST COMPARE DONE============================================";
     WCHAR outend[260] = L"=================================================================================================";
     WCHAR endres[260];
+#if _DEBUG
     printToScreen(out);
+#endif
     if (isCheckShowFiles == TRUE) {
         int itemCount = 0;
         for (auto i = filesList.begin(); i != filesList.end(); ++i)
@@ -675,9 +692,11 @@ void DumpUniqueFiles(std::list<CFileListItem>& filesList) {
             printToScreen(out);
         }
     }
-    swprintf(endres, 260, L"**FAST COMPARE END RESULT [%zu] UNIQUE FILES**", filesList.size());
+    swprintf(endres, 260, L"FAST COMPARE END RESULT [%zu] UNIQUE FILES**", filesList.size());
     printToScreen(endres);
+#if _DEBUG
     printToScreen(outend);
+#endif
 }
 
 void DumpUniqueFilesSlow(std::list<CFileListItem>& filesList) {
@@ -707,7 +726,9 @@ void DumpUniqueFilesSlow(std::list<CFileListItem>& filesList) {
     }
     swprintf(endres, 260, L"**SLOW COMPARE END RESULT [%zu] UNIQUE FILES**", filesList.size());
     printToScreen(endres);
+#if _DEBUG
     printToScreen(outend);
+#endif
 }
 
 
@@ -797,7 +818,7 @@ DWORD FileInListSlow(const std::wstring& filename, const ULONG& h1, const ULONG&
 
 long GetFileSize(std::wstring filename)
 {
-    std::string converted_str = converter.to_bytes(filename);
+    std::string converted_str = WstringToUtf8(filename);
 
     struct stat stat_buf;
     int rc = stat(converted_str.c_str(), &stat_buf);
@@ -807,7 +828,7 @@ long GetFileSize(std::wstring filename)
 bool GetDirExist(std::wstring dirname) {
 
     std::wstring dw = std::wstring(dirname);
-    std::string converted_dir = converter.to_bytes(dw);
+    std::string converted_dir = WstringToUtf8(dw);
 
     struct stat s;
     int err = stat(converted_dir.c_str(), &s);
@@ -866,4 +887,24 @@ unsigned int WINAPI TraverseDirectory2Slow(void* parg)
     WCHAR* dir = (WCHAR*)parg;
     FindFilesSlow(dir, FilesUniqueDirectory2);
     return 0;
+}
+
+// Utility function to convert UTF-8 std::string to std::wstring (UTF-16)
+std::wstring Utf8ToWstring(const std::string& str)
+{
+    if (str.empty()) return std::wstring();
+    int size_needed = MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), NULL, 0);
+    std::wstring wstrTo(size_needed, 0);
+    MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), &wstrTo[0], size_needed);
+    return wstrTo;
+}
+
+// Utility function to convert std::wstring (UTF-16) to UTF-8 std::string
+std::string WstringToUtf8(const std::wstring& wstr)
+{
+    if (wstr.empty()) return std::string();
+    int size_needed = WideCharToMultiByte(CP_UTF8, 0, wstr.data(), (int)wstr.size(), NULL, 0, NULL, NULL);
+    std::string strTo(size_needed, 0);
+    WideCharToMultiByte(CP_UTF8, 0, wstr.data(), (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
+    return strTo;
 }

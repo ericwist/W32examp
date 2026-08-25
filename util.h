@@ -15,6 +15,8 @@
 #include <list>
 #include <processthreadsapi.h>
 
+std::string WstringToUtf8(const std::wstring& wstr);
+std::wstring Utf8ToWstring(const std::string& str);
 int GetDirRequestorLoad( WCHAR *FileName, size_t size );
 BOOL FastCompare(WCHAR* directory1, WCHAR* directory2);
 BOOL SlowCompare(WCHAR* directory1, WCHAR* directory2);

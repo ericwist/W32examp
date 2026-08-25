@@ -52,4 +52,7 @@
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="CROSS_PLATFORM_ANALYSIS.md" />
+  </ItemGroup>
 </Project>
