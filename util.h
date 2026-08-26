@@ -8,7 +8,6 @@
 #pragma once
 #include "framework.h"
 #include "W32examp.h"
-#include <shlobj_core.h>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -21,7 +20,7 @@
 
 std::string WstringToUtf8(const std::wstring& wstr);
 std::wstring Utf8ToWstring(const std::string& str);
-int GetDirRequestorLoad( WCHAR *FileName, size_t size );
+//int GetDirRequestorLoad( WCHAR *FileName, size_t size );
 BOOL FastCompare(WCHAR* directory1, WCHAR* directory2);
 BOOL SlowCompare(WCHAR* directory1, WCHAR* directory2);
 void FindFiles(const std::wstring& directory, std::list<CFileListItem>& filesList);
@@ -42,24 +41,3 @@ unsigned int WINAPI TraverseDirectory1(void* parg);
 unsigned int WINAPI TraverseDirectory2(void* parg);
 unsigned int WINAPI TraverseDirectory1Slow(void* parg);
 unsigned int WINAPI TraverseDirectory2Slow(void* parg);
-//force this app to Idle and process messages from other apps and the system
-inline bool Idle(DWORD ticks = 0)
-{
-    MSG   msg;
-    DWORD max_time = ticks + GetTickCount();
-    BOOL  bret = true;
-
-    while (GetTickCount() < max_time)
-    {
-        while ((bret = PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)))
-        {
-            if (bret)
-            {
-                TranslateMessage(&msg);
-                DispatchMessage(&msg);
-            }
-        }
-        Sleep(5);
-    }
-    return true;
-}

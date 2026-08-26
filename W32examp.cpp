@@ -41,6 +41,9 @@ BOOL isCheckShowFiles = FALSE;
 volatile BOOL gbCancelOperation = FALSE;
 int windowX, windowY, windowWidth, windowHeight, editBoxWidth, editBoxHeight, listBoxHeight;
 
+// Add this line in your implementation file
+ThreadSafePrinter g_printer;
+
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
                      _In_ LPWSTR    lpCmdLine,
@@ -307,8 +310,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    ShowWindow(hWnd, SW_SHOW);
    UpdateWindow(hWnd);
-   WCHAR ready[] = L"Ready...";
-   printToScreen(ready);
+   //WCHAR ready[] = L"Ready...";
+   g_printer.print(L"Ready...");
    return TRUE;
 }
 
@@ -381,8 +384,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case ID_FILE_RUNFASTCOMPARE:
             {
                 DisableMenusAndButtons(hWnd);
-                WCHAR startMsg[260] = L"Starting fast comparison... please wait...";
-                printToScreen(startMsg);
+                //WCHAR startMsg[260] = L"Starting fast comparison... please wait...";
+                g_printer.print(L"Starting fast comparison... please wait...");
                 SendMessage(hEditWin, WM_GETTEXT, 260, (LPARAM)szDirectory1);
                 SendMessage(hEditWin2, WM_GETTEXT, 260, (LPARAM)szDirectory2);
                 if (BST_CHECKED == SendMessage(hButtonWinCBOX, BM_GETCHECK, 0, 0)) {
@@ -398,8 +401,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case ID_FILE_RUNSLOWCOMPARE:
             {
                 DisableMenusAndButtons(hWnd);
-                WCHAR startMsg[260] = L"Starting slow comparison... please wait...";
-                printToScreen(startMsg);
+                //WCHAR startMsg[260] = L"Starting slow comparison... please wait...";
+                g_printer.print(L"Starting slow comparison... please wait...");
                 SendMessage(hEditWin, WM_GETTEXT, 260, (LPARAM)szDirectory1);
                 SendMessage(hEditWin2, WM_GETTEXT, 260, (LPARAM)szDirectory2);
                 if (BST_CHECKED == SendMessage(hButtonWinCBOX, BM_GETCHECK, 0, 0)) {
@@ -431,8 +434,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case ID_FILE_STOPCANCELOP:
             {
                 gbCancelOperation = TRUE;
-                WCHAR stopMsg[260] = L"Stop requested - canceling current operation...";
-                printToScreen(stopMsg);
+                //WCHAR stopMsg[260] = L"Stop requested - canceling current operation...";
+                g_printer.print(L"Stop requested - canceling current operation...");
             }
             break;
             case IDM_ABOUT:

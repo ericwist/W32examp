@@ -116,39 +116,6 @@ unsigned int GetCoreCount()
 }
 
 //
-//   FUNCTION: GetDirRequestorLoad( WCHAR *Path, size_t size )
-//
-//   PURPOSE: To bring up the directory browser
-//
-int GetDirRequestorLoad( WCHAR *Path, size_t size ) {
-
-    BROWSEINFO bi;
-    /* Set Open File Name Structure. */
-    memset( &bi, 0, sizeof( bi ) );
-    bi.hwndOwner = (HWND)0;
-    bi.pidlRoot = NULL;
-    bi.lParam = (LPARAM)Path;
-    bi.lpszTitle = L"Select a folder";
-    bi.ulFlags = BIF_RETURNONLYFSDIRS;
-    bi.iImage = 0;
-
-    LPITEMIDLIST pIDList = SHBrowseForFolder(&bi); 
-    if (pIDList)
-    {
-        // Create a buffer to store the path, then get the path.
-        WCHAR buffer[MAX_PATH] = { '0' };
-        if (::SHGetPathFromIDList(pIDList, buffer) != 0)
-        {
-            wcscpy_s(Path, size, buffer);
-        }
-        // free the item id list
-        CoTaskMemFree(pIDList);
-        return TRUE;
-    }
-    return FALSE;
-}
-
-//
 //   FUNCTION: FastCompare(WCHAR *directory1, WCHAR *directory2)
 //
 //   PURPOSE: To compare filenames and some properties
@@ -654,6 +621,8 @@ void DumpUniqueFiles(std::list<CFileListItem>& filesList) {
             swprintf_s(out, 261, L"FILE[%s]::SIZE[%lu]::LASTWRITE[%lu.%lu]", 
                       i->m_Filename.c_str(), i->m_Size, i->m_dwLowDateTime, i->m_dwHighDateTime);
             g_logger.log(std::wstring(out));
+            std::wstring outstr = L"FILE[" + i->m_Filename + L"]::SIZE[" + std::to_wstring(i->m_Size) + L"]::LASTWRITE[" + std::to_wstring(i->m_dwLowDateTime) + L"." + std::to_wstring(i->m_dwHighDateTime) + L"]";
+			g_printer.print(outstr);
         }
     }
     
