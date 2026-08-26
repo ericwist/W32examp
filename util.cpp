@@ -127,14 +127,17 @@ BOOL FastCompare(WCHAR *directory1, WCHAR *directory2) {
 
     if (!GetDirExist(directory1)) {
         g_logger.log(std::wstring(L"Directory does NOT exist: ") + directory1);
+        g_logger.close();
         return FALSE;
     }
     if (!GetDirExist(directory2)) {
         g_logger.log(std::wstring(L"Directory does NOT exist: ") + directory2);
+        g_logger.close();
         return FALSE;
     }
     if (wcscmp(directory1, directory2) == 0) {
         g_logger.log(L"Directory 1 and Directory 2 are the same, no need to compare");
+        g_logger.close();
         return FALSE;
     }
     FilesUnique.clear();
@@ -169,6 +172,7 @@ BOOL FastCompare(WCHAR *directory1, WCHAR *directory2) {
     }
     catch (const std::exception& e) {
         g_logger.log(L"FATAL THREAD ERROR===========================================");
+        g_logger.close();
         return FALSE;
     }
     //END THREADS
@@ -183,6 +187,7 @@ BOOL FastCompare(WCHAR *directory1, WCHAR *directory2) {
         FilesUnique.clear();
         FilesUniqueDirectory2.clear();
         gbCancelOperation = FALSE;
+        g_logger.close();
         return FALSE;
     }
 
@@ -194,6 +199,7 @@ BOOL FastCompare(WCHAR *directory1, WCHAR *directory2) {
     //get end time
     totaltime = GetTickCount() - timestart;
     g_logger.log(L"TOTAL MILLISECONDS TIME FOR FAST OPERATION IS: " + std::to_wstring(totaltime));
+    g_logger.close();
     gbCancelOperation = FALSE;
     return TRUE;
 }
@@ -210,14 +216,17 @@ BOOL SlowCompare(WCHAR* directory1, WCHAR* directory2) {
 
     if (!GetDirExist(directory1)) {
         g_logger.log(std::wstring(L"Directory does NOT exist: ") + directory1);
+        g_logger.close();
         return FALSE;
     }
     if (!GetDirExist(directory2)) {
         g_logger.log(std::wstring(L"Directory does NOT exist: ") + directory2);
+		g_logger.close();
         return FALSE;
     }
     if (wcscmp(directory1, directory2) == 0) {
         g_logger.log(L"Directory 1 and Directory 2 are the same, no need to compare");
+        g_logger.close();
         return FALSE;
     }
     FilesUnique.clear();
@@ -250,6 +259,7 @@ BOOL SlowCompare(WCHAR* directory1, WCHAR* directory2) {
     }
     catch (const std::exception& e) {
         g_logger.log(L"FATAL THREAD ERROR===========================================");
+        g_logger.close();
         return FALSE;
     }
 #else
@@ -263,6 +273,7 @@ BOOL SlowCompare(WCHAR* directory1, WCHAR* directory2) {
         FilesUnique.clear();
         FilesUniqueDirectory2.clear();
         gbCancelOperation = FALSE;
+        g_logger.close();
         return FALSE;
     }
 
@@ -274,6 +285,7 @@ BOOL SlowCompare(WCHAR* directory1, WCHAR* directory2) {
     //get end time
     totaltime = GetTickCount() - timestart;
     g_logger.log(L"TOTAL MILLISECONDS TIME FOR SLOW OPERATION IS: " + std::to_wstring(totaltime));
+    g_logger.close();
     gbCancelOperation = FALSE;
     return TRUE;
 }
@@ -601,6 +613,7 @@ void CompareFilesSlow(std::list<CFileListItem>& filesList, std::list<CFileListIt
 void DumpUniqueFiles(std::list<CFileListItem>& filesList) {
 #if _DEBUG
     g_logger.log(L"===================================== FAST COMPARE DONE============================================");
+	g_printer.print(L"===================================== FAST COMPARE DONE============================================");
 #endif
     if (isCheckShowFiles == TRUE) {
         int itemCount = 0;
@@ -613,22 +626,18 @@ void DumpUniqueFiles(std::list<CFileListItem>& filesList) {
                 if (gbCancelOperation)
                 {
                     g_logger.log(L"Cancelled while displaying files");
+                    g_printer.print(L"Cancelled while displaying files");
                     return;
                 }
             }
-
-            WCHAR out[261] = L"";
-            swprintf_s(out, 261, L"FILE[%s]::SIZE[%lu]::LASTWRITE[%lu.%lu]", 
-                      i->m_Filename.c_str(), i->m_Size, i->m_dwLowDateTime, i->m_dwHighDateTime);
-            g_logger.log(std::wstring(out));
             std::wstring outstr = L"FILE[" + i->m_Filename + L"]::SIZE[" + std::to_wstring(i->m_Size) + L"]::LASTWRITE[" + std::to_wstring(i->m_dwLowDateTime) + L"." + std::to_wstring(i->m_dwHighDateTime) + L"]";
-			g_printer.print(outstr);
+            g_logger.log(outstr);
+            g_printer.print(outstr);
         }
     }
-    
-    WCHAR endres[261] = L"";
-    swprintf_s(endres, 261, L"**FAST COMPARE END RESULT [%zu] UNIQUE FILES**", filesList.size());
-    g_logger.log(std::wstring(endres));
+    std::wstring endstr = L"**FAST COMPARE END RESULT [" + std::to_wstring(filesList.size()) + L"] UNIQUE FILES**";
+    g_logger.log(endstr);
+    g_printer.print(endstr);
     
 #if _DEBUG
     g_logger.log(L"=================================================================================================");
@@ -638,6 +647,7 @@ void DumpUniqueFiles(std::list<CFileListItem>& filesList) {
 void DumpUniqueFilesSlow(std::list<CFileListItem>& filesList) {
 #if _DEBUG
     g_logger.log(L"===================================== FAST COMPARE DONE============================================");
+	g_p.print(L"===================================== FAST COMPARE DONE============================================");
 #endif
 
     if (isCheckShowFiles == TRUE) {
@@ -651,57 +661,24 @@ void DumpUniqueFilesSlow(std::list<CFileListItem>& filesList) {
                 if (gbCancelOperation)
                 {
                     g_logger.log(L"Cancelled while displaying files");
+                    g_printer.print(L"Cancelled while displaying files");
                     return;
                 }
             }
-
-            WCHAR out[261] = L"";
-            swprintf_s(out, 261, L"FILE[%s]::H1[%lu]::H2[%lu]::H3[%lu]::H4[%lu]", 
-                      i->m_Filename.c_str(), i->m_dwHash[0], i->m_dwHash[1], i->m_dwHash[2], i->m_dwHash[3]);
-            g_logger.log(std::wstring(out));
+			std::wstring outstr = L"FILE[" + i->m_Filename + L"]::H1[" + std::to_wstring(i->m_dwHash[0]) + L"]::H2[" + std::to_wstring(i->m_dwHash[1]) + L"]::H3[" + std::to_wstring(i->m_dwHash[2]) + L"]::H4[" + std::to_wstring(i->m_dwHash[3]) + L"]";
+            g_logger.log(outstr);
+			g_printer.print(outstr);
         }
     }
     
-    WCHAR endres[261] = L"";
-    swprintf_s(endres, 261, L"**SLOW COMPARE UNIQUE FILES** : %zu", filesList.size());
-    g_logger.log(std::wstring(endres));
-    
+    std::wstring endstr = L"**SLOW COMPARE END RESULT [" + std::to_wstring(filesList.size()) + L"] UNIQUE FILES**";
+    g_logger.log(endstr);
+    g_printer.print(endstr);
 #if _DEBUG
     g_logger.log(L"=================================================================================================");
 #endif
 }
-/*
-int openLogFile() {
-    if (!logFile.is_open()) {
-       // logFile << L"Compare Log File Created" << std::endl;
-       // logFile.close();
-		logFile.open("compare.log", std::ios::out | std::ios::app);
-        if (logFile.is_open()) {
-            return 0; // Success
-        }
-    }
-    else if (logFile.is_open()) {
-        logFile << L"Compare Log File Already Open" << std::endl;
-		return 0; // Success
-    }
-    return -1; // Failure
-}
 
-void logPrint(const std::wstring str) {
-    // Send log to list box and log file
-    Printf(str);
-    if (logFile.is_open()) {
-        logFile << str << std::endl;
-	}
-}
-
-void closeLogFile() {
-    if (logFile.is_open()) {
-        logFile << L"end close!" << std::endl;
-        logFile.close();
-    }
-}
-*/
 DWORD Add(const std::wstring& filename, const ULONG& size, const DWORD& lt, const DWORD& ht, std::list<CFileListItem>& filesList)
 {
     CFileListItem fileData;

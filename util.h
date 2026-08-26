@@ -14,20 +14,14 @@
 #include <list>
 #include <processthreadsapi.h>
 
-//int openLogFile();
-//void logPrint(const std::wstring str);
-//void closeLogFile();
-
 std::string WstringToUtf8(const std::wstring& wstr);
 std::wstring Utf8ToWstring(const std::string& str);
-//int GetDirRequestorLoad( WCHAR *FileName, size_t size );
 BOOL FastCompare(WCHAR* directory1, WCHAR* directory2);
 BOOL SlowCompare(WCHAR* directory1, WCHAR* directory2);
 void FindFiles(const std::wstring& directory, std::list<CFileListItem>& filesList);
 void FindFilesSlow(const std::wstring& directory, std::list<CFileListItem>& filesList);
 void CompareFiles(std::list<CFileListItem>& filesList, std::list<CFileListItem>& filesListDirectory2);
 void CompareFilesSlow(std::list<CFileListItem>& filesList, std::list<CFileListItem>& filesListDirectory2);
-// ULONG GetSize(WCHAR *filepath);
 void DumpUniqueFiles(std::list<CFileListItem>& filesList);
 void DumpUniqueFilesSlow(std::list<CFileListItem>& filesList);
 DWORD Add(const std::wstring& filename, const ULONG& size, const DWORD& lt, const DWORD& ht, std::list<CFileListItem>& filesList);
@@ -37,7 +31,3 @@ DWORD FileInListSlow(const std::wstring& filename, const ULONG& h1, const ULONG&
 long GetFileSize(std::wstring filename);
 bool GetDirExist(std::wstring dirname);
 extern volatile BOOL gbCancelOperation;  // Flag to cancel current operation
-unsigned int WINAPI TraverseDirectory1(void* parg);
-unsigned int WINAPI TraverseDirectory2(void* parg);
-unsigned int WINAPI TraverseDirectory1Slow(void* parg);
-unsigned int WINAPI TraverseDirectory2Slow(void* parg);
