@@ -42,7 +42,7 @@ private:
 
 public:
     ThreadSafeLogger(const std::string& filename) {
-        logFile.open(filename, std::ios::out | std::ios::app);
+        logFile.open(filename, std::ios::out | std::ios::trunc);
     }
 
     ~ThreadSafeLogger() {
@@ -120,7 +120,7 @@ unsigned int GetCoreCount()
 //
 //   PURPOSE: To compare filenames and some properties
 //
-BOOL FastCompare(WCHAR *directory1, WCHAR *directory2) {
+BOOL FastCompare(const std::wstring& directory1, const std::wstring& directory2) {
 
     // Reset cancellation flag at start
     gbCancelOperation = FALSE;
@@ -135,7 +135,7 @@ BOOL FastCompare(WCHAR *directory1, WCHAR *directory2) {
         g_logger.close();
         return FALSE;
     }
-    if (wcscmp(directory1, directory2) == 0) {
+    if (directory1 == directory2) {
         g_logger.log(L"Directory 1 and Directory 2 are the same, no need to compare");
         g_logger.close();
         return FALSE;
@@ -209,7 +209,7 @@ BOOL FastCompare(WCHAR *directory1, WCHAR *directory2) {
 //
 //   PURPOSE: To compare filenames and some properties
 //
-BOOL SlowCompare(WCHAR* directory1, WCHAR* directory2) {
+BOOL SlowCompare(const std::wstring& directory1, const std::wstring& directory2) {
 
     // Reset cancellation flag at start
     gbCancelOperation = FALSE;
@@ -224,7 +224,7 @@ BOOL SlowCompare(WCHAR* directory1, WCHAR* directory2) {
 		g_logger.close();
         return FALSE;
     }
-    if (wcscmp(directory1, directory2) == 0) {
+    if (directory1 == directory2) {
         g_logger.log(L"Directory 1 and Directory 2 are the same, no need to compare");
         g_logger.close();
         return FALSE;

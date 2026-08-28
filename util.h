@@ -16,8 +16,8 @@
 
 std::string WstringToUtf8(const std::wstring& wstr);
 std::wstring Utf8ToWstring(const std::string& str);
-BOOL FastCompare(WCHAR* directory1, WCHAR* directory2);
-BOOL SlowCompare(WCHAR* directory1, WCHAR* directory2);
+BOOL FastCompare(const std::wstring& directory1, const std::wstring& directory2);
+BOOL SlowCompare(const std::wstring& directory1, const std::wstring& directory2);
 void FindFiles(const std::wstring& directory, std::list<CFileListItem>& filesList);
 void FindFilesSlow(const std::wstring& directory, std::list<CFileListItem>& filesList);
 void CompareFiles(std::list<CFileListItem>& filesList, std::list<CFileListItem>& filesListDirectory2);
