@@ -776,18 +776,34 @@ bool GetDirExist(std::wstring dirname) {
 std::wstring Utf8ToWstring(const std::string& str)
 {
     if (str.empty()) return std::wstring();
+    
+#ifdef _WIN32
+    // Windows: Use MultiByteToWideChar
     int size_needed = MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), NULL, 0);
     std::wstring wstrTo(size_needed, 0);
     MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), &wstrTo[0], size_needed);
     return wstrTo;
+#else
+    // Linux/macOS: Use std::codecvt
+    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+    return converter.from_bytes(str);
+#endif
 }
 
 // Utility function to convert std::wstring (UTF-16) to UTF-8 std::string
 std::string WstringToUtf8(const std::wstring& wstr)
 {
     if (wstr.empty()) return std::string();
+    
+#ifdef _WIN32
+    // Windows: Use WideCharToMultiByte
     int size_needed = WideCharToMultiByte(CP_UTF8, 0, wstr.data(), (int)wstr.size(), NULL, 0, NULL, NULL);
     std::string strTo(size_needed, 0);
     WideCharToMultiByte(CP_UTF8, 0, wstr.data(), (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
     return strTo;
+#else
+    // Linux/macOS: Use std::codecvt
+    std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+    return converter.to_bytes(wstr);
+#endif
 }
