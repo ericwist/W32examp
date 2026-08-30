@@ -22,13 +22,10 @@
 #include <fstream>
 #include <mutex>
 #include <queue>
+#include <cstdint> 
 
 //remark this out to turn off threads
 #define THREADED_CALLS
-
-//For string conversions
-//using convert_type = std::codecvt_utf8<wchar_t>;
-//std::wstring_convert<convert_type, wchar_t> converter;
 
 //Declare my list of file objects globally in the file only
 std::list<CFileListItem> FilesUnique;
@@ -120,31 +117,31 @@ unsigned int GetCoreCount()
 //
 //   PURPOSE: To compare filenames and some properties
 //
-BOOL FastCompare(const std::wstring& directory1, const std::wstring& directory2) {
+int FastCompare(const std::wstring& directory1, const std::wstring& directory2) {
 
     // Reset cancellation flag at start
-    gbCancelOperation = FALSE;
+    gbCancelOperation = 0;
 
     if (!GetDirExist(directory1)) {
         g_logger.log(std::wstring(L"Directory does NOT exist: ") + directory1);
         g_logger.close();
-        return FALSE;
+        return 0;
     }
     if (!GetDirExist(directory2)) {
         g_logger.log(std::wstring(L"Directory does NOT exist: ") + directory2);
         g_logger.close();
-        return FALSE;
+        return 0;
     }
     if (directory1 == directory2) {
         g_logger.log(L"Directory 1 and Directory 2 are the same, no need to compare");
         g_logger.close();
-        return FALSE;
+        return 0;
     }
     FilesUnique.clear();
     //START THREADS
     //start time
-    DWORD totaltime = 0;
-    DWORD timestart = GetTickCount();
+    uint64_t totaltime = 0;
+    uint64_t timestart = GetTickCount64();
 #ifdef THREADED_CALLS
     try {
         unsigned int coreCount = GetCoreCount();
@@ -173,7 +170,7 @@ BOOL FastCompare(const std::wstring& directory1, const std::wstring& directory2)
     catch (const std::exception& e) {
         g_logger.log(L"FATAL THREAD ERROR===========================================");
         g_logger.close();
-        return FALSE;
+        return 0;
     }
     //END THREADS
 #else
@@ -186,9 +183,9 @@ BOOL FastCompare(const std::wstring& directory1, const std::wstring& directory2)
         g_logger.log(L"Operation cancelled by user");
         FilesUnique.clear();
         FilesUniqueDirectory2.clear();
-        gbCancelOperation = FALSE;
+        gbCancelOperation = 0;
         g_logger.close();
-        return FALSE;
+        return 0;
     }
 
     //compare two unique lists and crate file list in FilesUnique
@@ -197,10 +194,10 @@ BOOL FastCompare(const std::wstring& directory1, const std::wstring& directory2)
     DumpUniqueFiles(FilesUnique);
     FilesUnique.clear();
     //get end time
-    totaltime = GetTickCount() - timestart;
+    totaltime = GetTickCount64() - timestart;
     g_logger.log(L"TOTAL MILLISECONDS TIME FOR FAST OPERATION IS: " + std::to_wstring(totaltime));
     g_logger.close();
-    gbCancelOperation = FALSE;
+    gbCancelOperation = 0;
     return TRUE;
 }
 
@@ -209,29 +206,29 @@ BOOL FastCompare(const std::wstring& directory1, const std::wstring& directory2)
 //
 //   PURPOSE: To compare filenames and some properties
 //
-BOOL SlowCompare(const std::wstring& directory1, const std::wstring& directory2) {
+int SlowCompare(const std::wstring& directory1, const std::wstring& directory2) {
 
     // Reset cancellation flag at start
-    gbCancelOperation = FALSE;
+    gbCancelOperation = 0;
 
     if (!GetDirExist(directory1)) {
         g_logger.log(std::wstring(L"Directory does NOT exist: ") + directory1);
         g_logger.close();
-        return FALSE;
+        return 0;
     }
     if (!GetDirExist(directory2)) {
         g_logger.log(std::wstring(L"Directory does NOT exist: ") + directory2);
 		g_logger.close();
-        return FALSE;
+        return 0;
     }
     if (directory1 == directory2) {
         g_logger.log(L"Directory 1 and Directory 2 are the same, no need to compare");
         g_logger.close();
-        return FALSE;
+        return 0;
     }
     FilesUnique.clear();
-    DWORD totaltime = 0;
-    DWORD timestart = GetTickCount();
+    uint64_t totaltime = 0;
+    uint64_t timestart = GetTickCount64();
 #ifdef THREADED_CALLS
     try {
         unsigned int coreCount = GetCoreCount();
@@ -260,7 +257,7 @@ BOOL SlowCompare(const std::wstring& directory1, const std::wstring& directory2)
     catch (const std::exception& e) {
         g_logger.log(L"FATAL THREAD ERROR===========================================");
         g_logger.close();
-        return FALSE;
+        return 0;
     }
 #else
     FindFilesSlow(directory1, FilesUnique);
@@ -272,9 +269,9 @@ BOOL SlowCompare(const std::wstring& directory1, const std::wstring& directory2)
         g_logger.log(L"Operation cancelled by user");
         FilesUnique.clear();
         FilesUniqueDirectory2.clear();
-        gbCancelOperation = FALSE;
+        gbCancelOperation = 0;
         g_logger.close();
-        return FALSE;
+        return 0;
     }
 
     //compare two unique lists and crate file list in FilesUnique
@@ -283,10 +280,10 @@ BOOL SlowCompare(const std::wstring& directory1, const std::wstring& directory2)
     DumpUniqueFilesSlow(FilesUnique);
     FilesUnique.clear();
     //get end time
-    totaltime = GetTickCount() - timestart;
+    totaltime = GetTickCount64() - timestart;
     g_logger.log(L"TOTAL MILLISECONDS TIME FOR SLOW OPERATION IS: " + std::to_wstring(totaltime));
     g_logger.close();
-    gbCancelOperation = FALSE;
+    gbCancelOperation = 0;
     return TRUE;
 }
 
@@ -311,14 +308,14 @@ SIZE_T GetCurrentMemoryUsage()
 //   PURPOSE: Check if memory usage exceeds limits
 //   RETURNS: TRUE if within limits, FALSE if exceeded
 //
-BOOL CheckMemoryLimit(SIZE_T currentUsage)
+int CheckMemoryLimit(SIZE_T currentUsage)
 {
     SIZE_T maxBytes = (SIZE_T)MAX_MEMORY_MB * 1024 * 1024;
     SIZE_T warningBytes = (SIZE_T)WARNING_MEMORY_MB * 1024 * 1024;
     
     if (currentUsage > maxBytes)
     {
-        return FALSE;  // Exceeded limit
+        return 0;  // Exceeded limit
     }
     
     if (currentUsage > warningBytes)
@@ -326,7 +323,7 @@ BOOL CheckMemoryLimit(SIZE_T currentUsage)
         g_logger.log(L"WARNING: Memory usage high (" + std::to_wstring(currentUsage / (1024 * 1024)) + L" MB). Consider smaller directories.");
     }
     
-    return TRUE;
+    return 1;
 }
 
 //
@@ -474,6 +471,7 @@ void FindFilesSlow(const std::wstring& directory, std::list<CFileListItem>& file
             if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
             {
                 if ((!lstrcmpW(file.cFileName, L".")) || (!lstrcmpW(file.cFileName, L"..")))
+
                     continue;
             }
             
@@ -679,7 +677,7 @@ void DumpUniqueFilesSlow(std::list<CFileListItem>& filesList) {
 #endif
 }
 
-DWORD Add(const std::wstring& filename, const ULONG& size, const DWORD& lt, const DWORD& ht, std::list<CFileListItem>& filesList)
+uint32_t Add(const std::wstring& filename, const uint32_t& size, const uint32_t& lt, const uint32_t& ht, std::list<CFileListItem>& filesList)
 {
     CFileListItem fileData;
     fileData.SetFilename(filename);
@@ -692,7 +690,7 @@ DWORD Add(const std::wstring& filename, const ULONG& size, const DWORD& lt, cons
     return(0);
 }
 
-DWORD AddSlow(const std::wstring& filename, const ULONG& h1, const ULONG& h2, const ULONG& h3, const ULONG& h4, std::list<CFileListItem>& filesList)
+uint32_t AddSlow(const std::wstring& filename, const uint32_t& h1, const uint32_t& h2, const uint32_t& h3, const uint32_t& h4, std::list<CFileListItem>& filesList)
 {
     CFileListItem fileData;
     fileData.SetFilename(filename);
@@ -703,7 +701,7 @@ DWORD AddSlow(const std::wstring& filename, const ULONG& h1, const ULONG& h2, co
     return(0);
 }
 
-DWORD FileInList(const std::wstring& filename, const ULONG& size, const DWORD& lt, const DWORD& ht, std::list<CFileListItem> &filesList)
+uint32_t FileInList(const std::wstring& filename, const uint32_t& size, const uint32_t& lt, const uint32_t& ht, std::list<CFileListItem> &filesList)
 {
     std::list<CFileListItem>::iterator i;
     for (i = filesList.begin(); i != filesList.end(); ++i)
@@ -716,7 +714,7 @@ DWORD FileInList(const std::wstring& filename, const ULONG& size, const DWORD& l
     return(ERROR_NOT_FOUND);
 }
 
-DWORD FileInListSlow(const std::wstring& filename, const ULONG& h1, const ULONG& h2, const ULONG& h3, const ULONG& h4, std::list<CFileListItem>& filesList)
+uint32_t FileInListSlow(const std::wstring& filename, const uint32_t& h1, const uint32_t& h2, const uint32_t& h3, const uint32_t& h4, std::list<CFileListItem>& filesList)
 {
     std::list<CFileListItem>::iterator i;
     for (i = filesList.begin(); i != filesList.end(); ++i)
@@ -749,7 +747,7 @@ bool GetDirExist(std::wstring dirname) {
     if (-1 == err) {
         if (ENOENT == errno) {
             /* does not exist */
-            return FALSE;
+            return 0;
         }
         else {
             // bad error just exit
@@ -762,11 +760,11 @@ bool GetDirExist(std::wstring dirname) {
 #if 0
         if (S_ISDIR(s.st_mode)) {
             /* it's a dir */
-            return TRUE;
+            return 1;
         }
         else {
             /* exists but is no dir */
-            return FALSE;
+            return 0;
         }
 #endif
     }
