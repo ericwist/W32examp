@@ -12,7 +12,6 @@
 #include <string>
 #include <vector>
 #include <list>
-#include <processthreadsapi.h>
 #include <cstdint>
 
 std::string WstringToUtf8(const std::wstring& wstr);

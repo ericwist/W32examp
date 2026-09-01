@@ -18,7 +18,6 @@
 #include <unordered_map>
 #include <chrono>
 #include <thread>
-#include <Windows.h>
 #include <fstream>
 #include <mutex>
 #include <queue>
@@ -377,7 +376,7 @@ void FindFiles(const std::wstring& directory, std::list<CFileListItem>& filesLis
 
             if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
             {
-                if ((!lstrcmpW(file.cFileName, L".")) || (!lstrcmpW(file.cFileName, L"..")))
+                if ((!wcscmp(file.cFileName, L".")) || (!wcscmp(file.cFileName, L"..")))
                     continue;
             }
             
@@ -470,7 +469,7 @@ void FindFilesSlow(const std::wstring& directory, std::list<CFileListItem>& file
 
             if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
             {
-                if ((!lstrcmpW(file.cFileName, L".")) || (!lstrcmpW(file.cFileName, L"..")))
+                if ((!wcscmp(file.cFileName, L".")) || (!wcscmp(file.cFileName, L"..")))
 
                     continue;
             }
