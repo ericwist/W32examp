@@ -8,11 +8,11 @@
 #pragma once
 
 #include "resource.h"
-#include <string>
 #include <psapi.h>  // For memory info
 #include <shlobj_core.h>
 #include <mutex>
 #include <queue>
+#include <string>
 
 // Declare list box handle globally so i can access it from utility functions
 extern HWND ghListBox;
@@ -119,10 +119,11 @@ BOOL CheckMemoryLimit(SIZE_T currentUsage);
 inline bool Idle(DWORD ticks = 0)
 {
     MSG   msg;
-    DWORD max_time = ticks + GetTickCount();
+    ULONGLONG start_time = GetTickCount64();
+    ULONGLONG max_time = start_time + static_cast<ULONGLONG>(ticks);
     BOOL  bret = true;
 
-    while (GetTickCount() < max_time)
+    while (GetTickCount64() < max_time)
     {
         while ((bret = PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)))
         {
@@ -143,7 +144,7 @@ inline bool Idle(DWORD ticks = 0)
 //   PURPOSE: To bring up the directory browser
 //
 inline int GetDirRequestorLoad(WCHAR* Path, size_t size) {
-
+    
     BROWSEINFO bi;
     /* Set Open File Name Structure. */
     memset(&bi, 0, sizeof(bi));
@@ -158,7 +159,7 @@ inline int GetDirRequestorLoad(WCHAR* Path, size_t size) {
     if (pIDList)
     {
         // Create a buffer to store the path, then get the path.
-        WCHAR buffer[MAX_PATH] = { '0' };
+        WCHAR buffer[MAX_PATH+1] = { '0' };
         if (::SHGetPathFromIDList(pIDList, buffer) != 0)
         {
             wcscpy_s(Path, size, buffer);
@@ -169,6 +170,14 @@ inline int GetDirRequestorLoad(WCHAR* Path, size_t size) {
     }
     return FALSE;
 }
+
+
+
+
+
+
+
+
 
 
 

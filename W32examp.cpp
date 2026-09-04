@@ -33,8 +33,9 @@ HWND hButtonWinCBOX;
 HWND hButtonWinStop;
 HWND hListBox;
 HWND ghListBox = 0;
-WCHAR szDirectory1[MAX_PATH];
-WCHAR szDirectory2[MAX_PATH];
+HBRUSH hEditBrush = NULL;
+std::wstring szDirectory1;
+std::wstring szDirectory2;
 WCHAR szExt[100] = L"*";
 WCHAR szType[100] = L"";
 BOOL isCheckShowFiles = FALSE;
@@ -64,7 +65,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     {
         return FALSE;
     }
-
+    
     HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_W32EXAMP));
 
     MSG msg;
@@ -189,7 +190,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     windowWidth = (rc.right - rc.left) / 2;
     windowHeight = ((rc.bottom - rc.top) - 100);
 
-    HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPED | WS_VISIBLE | ES_AUTOHSCROLL | ES_AUTOVSCROLL | WS_CAPTION | WS_THICKFRAME | WS_SYSMENU,
+    HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPED | WS_VISIBLE | ES_AUTOHSCROLL | ES_AUTOVSCROLL | WS_CAPTION | WS_THICKFRAME | WS_SYSMENU | WS_CLIPCHILDREN,
         windowX, windowY, windowWidth, windowHeight, nullptr, nullptr, hInstance, nullptr);
 
    if (!hWnd)
@@ -207,13 +208,13 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    listBoxHeight = rc.bottom - rc.top - SM_CYDLGFRAME - SM_CYSIZE - SM_CYSIZE - (editBoxHeight*4) - 50;//Frame + Titlebar
 
 
-   hEditWin = CreateWindowEx(WS_EX_CLIENTEDGE,L"EDIT", szDirectory1,
-//       ES_READONLY | /*ES_WANTRETURN |*/ WS_CHILD | WS_HSCROLL | WS_VSCROLL | WS_VISIBLE | ES_MULTILINE,
-       WS_CHILD | WS_VISIBLE | ES_MULTILINE,
+   hEditWin = CreateWindowEx(WS_EX_CLIENTEDGE,L"EDIT", szDirectory1.c_str(),
+       WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY,
        CW_USEDEFAULT, CW_USEDEFAULT,
        CW_USEDEFAULT, CW_USEDEFAULT,
        hWnd, nullptr, hInstance, nullptr);
 
+   hEditBrush = CreateSolidBrush(RGB(255, 255, 255));
 
    hButtonWin = CreateWindowEx(WS_EX_CLIENTEDGE, L"BUTTON", L"...",
        WS_CHILD | WS_VISIBLE ,
@@ -221,8 +222,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
        CW_USEDEFAULT, CW_USEDEFAULT,
        hWnd, (HMENU)ID_FILE_FINDDIRECTORYONE, hInstance, nullptr);
 
-   hEditWin2 = CreateWindowEx(WS_EX_CLIENTEDGE, L"EDIT", szDirectory2,
-       WS_CHILD | WS_VISIBLE | ES_MULTILINE,
+   hEditWin2 = CreateWindowEx(WS_EX_CLIENTEDGE, L"EDIT", szDirectory2.c_str(),
+       WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY,
        CW_USEDEFAULT, CW_USEDEFAULT,
        CW_USEDEFAULT, CW_USEDEFAULT,
        hWnd, nullptr, hInstance, nullptr);
@@ -273,7 +274,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    UpdateWindow(hEditWin);
 
    ShowWindow(hButtonWin, nCmdShow);
-   SetWindowPos(hButtonWin, NULL, editBoxWidth+10, 20, 60, editBoxHeight, SWP_SHOWWINDOW);
+   SetWindowPos(hButtonWin, NULL, editBoxWidth+20, 20, 60, editBoxHeight, SWP_SHOWWINDOW);
    UpdateWindow(hButtonWin);
 
    ShowWindow(hEditWin2, nCmdShow);
@@ -281,7 +282,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    UpdateWindow(hEditWin2);
 
    ShowWindow(hButtonWin2, nCmdShow);
-   SetWindowPos(hButtonWin2, NULL, editBoxWidth+10, 80, 60, editBoxHeight, SWP_SHOWWINDOW);
+   SetWindowPos(hButtonWin2, NULL, editBoxWidth+20, 80, 60, editBoxHeight, SWP_SHOWWINDOW);
    UpdateWindow(hButtonWin2);
 
    ShowWindow(hButtonWinFC, nCmdShow);
@@ -310,7 +311,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    ShowWindow(hWnd, SW_SHOW);
    UpdateWindow(hWnd);
-   //WCHAR ready[] = L"Ready...";
+   OutputDebugString(L"Ready 1...\n");
    g_printer.print(L"Ready...");
    return TRUE;
 }
@@ -368,32 +369,63 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case ID_FILE_FINDDIRECTORYONE:
             {
                 DisableMenusAndButtons(hWnd);
-                GetDirRequestorLoad(szDirectory1, MAX_PATH);
-                SendMessage(hEditWin, WM_SETTEXT, 0, (LPARAM)szDirectory1);
+                // Ensure szDirectory1 has enough space for MAX_PATH characters
+                szDirectory1.resize(MAX_PATH);
+                // Pass writable buffer to the function
+                GetDirRequestorLoad(&szDirectory1[0], MAX_PATH);
+                SendMessage(hEditWin, WM_SETTEXT, 0, (LPARAM)szDirectory1.c_str());
                 EnableMenusAndButtons(hWnd);
             }
                 break;
             case ID_FILE_FINDDIRECTORYTWO:
             {
                 DisableMenusAndButtons(hWnd);
-                GetDirRequestorLoad(szDirectory2, MAX_PATH);
-                SendMessage(hEditWin2, WM_SETTEXT, 0, (LPARAM)szDirectory2);
+                // Ensure szDirectory2 has enough space for MAX_PATH characters
+                szDirectory2.resize(MAX_PATH);
+                // Pass writable buffer to the function
+                GetDirRequestorLoad(&szDirectory2[0], MAX_PATH);
+                SendMessage(hEditWin2, WM_SETTEXT, 0, (LPARAM)szDirectory2.c_str());
                 EnableMenusAndButtons(hWnd);
             }
                 break;
             case ID_FILE_RUNFASTCOMPARE:
             {
                 DisableMenusAndButtons(hWnd);
-                //WCHAR startMsg[260] = L"Starting fast comparison... please wait...";
-                g_printer.print(L"Starting fast comparison... please wait...");
-                SendMessage(hEditWin, WM_GETTEXT, 260, (LPARAM)szDirectory1);
-                SendMessage(hEditWin2, WM_GETTEXT, 260, (LPARAM)szDirectory2);
+                WCHAR buffer[MAX_PATH + 1] = { 0 };
+                SendMessage(hEditWin, WM_GETTEXT, MAX_PATH, (LPARAM)buffer);
+                szDirectory1 = buffer;
+                szDirectory1 = RemoveSpacesAndNonPrintable(szDirectory1);
+                if (szDirectory1.empty()) {
+                    g_printer.print(L"Error: Directory1 is empty. Please select valid directory.");
+                    EnableMenusAndButtons(hWnd);
+                    return 0;
+                }
+                if (!isRootPath(szDirectory1)) {
+                    g_printer.print(L"Error: Directory 1 is not a root path. Please select a valid directory.");
+                    EnableMenusAndButtons(hWnd);
+                    return 0;
+                }
+                ZeroMemory(buffer, sizeof(buffer));
+                SendMessage(hEditWin2, WM_GETTEXT, MAX_PATH, (LPARAM)buffer);
+                szDirectory2 = buffer;
+				szDirectory2 = RemoveSpacesAndNonPrintable(szDirectory2);
+                if (szDirectory2.empty()) {
+                    g_printer.print(L"Error: Directory2 is empty. Please select valid directory.");
+                    EnableMenusAndButtons(hWnd);
+                    return 0;
+                }
+                if (!isRootPath(szDirectory2)) {
+                    g_printer.print(L"Error: Directory2  is not a root path. Please select a valid directory.");
+                    EnableMenusAndButtons(hWnd);
+                    return 0;
+                }
                 if (BST_CHECKED == SendMessage(hButtonWinCBOX, BM_GETCHECK, 0, 0)) {
                     isCheckShowFiles = TRUE;
                 }
                 else {
                     isCheckShowFiles = FALSE;
                 }
+                g_printer.print(L"Starting fast comparison... please wait...");
                 FastCompare(szDirectory1, szDirectory2);
                 EnableMenusAndButtons(hWnd);
             }
@@ -401,16 +433,41 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case ID_FILE_RUNSLOWCOMPARE:
             {
                 DisableMenusAndButtons(hWnd);
-                //WCHAR startMsg[260] = L"Starting slow comparison... please wait...";
-                g_printer.print(L"Starting slow comparison... please wait...");
-                SendMessage(hEditWin, WM_GETTEXT, 260, (LPARAM)szDirectory1);
-                SendMessage(hEditWin2, WM_GETTEXT, 260, (LPARAM)szDirectory2);
+                WCHAR buffer[MAX_PATH + 1] = { 0 };
+                SendMessage(hEditWin, WM_GETTEXT, MAX_PATH, (LPARAM)buffer);
+                szDirectory1 = buffer;
+                szDirectory1 = RemoveSpacesAndNonPrintable(szDirectory1);
+                if (szDirectory1.empty()) {
+                    g_printer.print(L"Error: Directory1 is empty. Please select valid directory.");
+                    EnableMenusAndButtons(hWnd);
+                    return 0;
+                }
+                if (!isRootPath(szDirectory1)) {
+                    g_printer.print(L"Error: Directory 1 is not a root path. Please select a valid directory.");
+                    EnableMenusAndButtons(hWnd);
+                    return 0;
+                }
+                ZeroMemory(buffer, sizeof(buffer));
+                SendMessage(hEditWin2, WM_GETTEXT, MAX_PATH, (LPARAM)buffer);
+                szDirectory2 = buffer;
+                szDirectory2 = RemoveSpacesAndNonPrintable(szDirectory2);
+                if (szDirectory2.empty()) {
+                    g_printer.print(L"Error: Directory2 is empty. Please select valid directory.");
+                    EnableMenusAndButtons(hWnd);
+                    return 0;
+                }
+                if (!isRootPath(szDirectory2)) {
+                    g_printer.print(L"Error: Directory2  is not a root path. Please select a valid directory.");
+                    EnableMenusAndButtons(hWnd);
+                    return 0;
+                }
                 if (BST_CHECKED == SendMessage(hButtonWinCBOX, BM_GETCHECK, 0, 0)) {
                     isCheckShowFiles = TRUE;
                 }
                 else {
                     isCheckShowFiles = FALSE;
                 }
+                g_printer.print(L"Starting slow comparison... please wait...");
                 SlowCompare(szDirectory1, szDirectory2);
                 EnableMenusAndButtons(hWnd);
             }
@@ -434,7 +491,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case ID_FILE_STOPCANCELOP:
             {
                 gbCancelOperation = TRUE;
-                //WCHAR stopMsg[260] = L"Stop requested - canceling current operation...";
                 g_printer.print(L"Stop requested - canceling current operation...");
             }
             break;
@@ -457,6 +513,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             EndPaint(hWnd, &ps);
         }
         break;
+    case WM_CTLCOLORSTATIC: 
+        {
+            HDC hdcEdit = reinterpret_cast<HDC>(wParam);
+            HWND hwndEdit = reinterpret_cast<HWND>(lParam);
+            OutputDebugString(L"WM_CTLCOLOREDIT received\n");
+            if (hwndEdit == hEditWin || hwndEdit == hEditWin2) {
+                OutputDebugString(L"Setting hEditWin background to white\n");
+                SetBkColor(hdcEdit, RGB(255, 255, 255));  // White background
+                SetTextColor(hdcEdit, RGB(0, 0, 0));      // Black text
+                SelectObject(hdcEdit, hEditBrush);
+                return reinterpret_cast<INT_PTR>(hEditBrush);
+            }
+        }
+        break;
         //keep user from being able to move/size the window
     case WM_SYSCOMMAND:
         switch (
@@ -477,6 +547,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_DESTROY:
+        if (hEditBrush) {
+            DeleteObject(hEditBrush);
+            hEditBrush = NULL;
+        }
         PostQuitMessage(0);
         break;
     default:

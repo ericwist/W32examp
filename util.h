@@ -13,7 +13,12 @@
 #include <vector>
 #include <list>
 #include <cstdint>
+#include <filesystem>
+#include <algorithm>
+#include <cctype>
 
+bool isAbsolutePath(const std::wstring& path);
+bool isRootPath(const std::wstring& path);
 std::string WstringToUtf8(const std::wstring& wstr);
 std::wstring Utf8ToWstring(const std::string& str);
 int FastCompare(const std::wstring& directory1, const std::wstring& directory2);
@@ -31,3 +36,12 @@ uint32_t FileInListSlow(const std::wstring& filename, const uint32_t& h1, const 
 long GetFileSize(std::wstring filename);
 bool GetDirExist(std::wstring dirname);
 extern volatile int gbCancelOperation;  // Flag to cancel current operation
+
+inline std::wstring RemoveSpacesAndNonPrintable(const std::wstring& str) {
+    size_t start = str.find_first_not_of(L" \t\n\r\f\v");
+    if (start == std::wstring::npos) {
+        return L"";  // String is all whitespace
+    }
+    size_t end = str.find_last_not_of(L" \t\n\r\f\v");
+    return str.substr(start, end - start + 1);
+}

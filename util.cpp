@@ -22,6 +22,12 @@
 #include <mutex>
 #include <queue>
 #include <cstdint> 
+#ifdef __linux__
+#include <dirent.h>
+#endif
+#ifdef __APPLE__
+#include <dirent.h>
+#endif
 
 //remark this out to turn off threads
 #define THREADED_CALLS
@@ -35,10 +41,14 @@ private:
     std::wofstream logFile;
     std::mutex logMutex;
     std::queue<std::wstring> messageQueue;
+    std::string filename;
+    bool isOpened;
 
 public:
-    ThreadSafeLogger(const std::string& filename) {
+    ThreadSafeLogger(const std::string& fname) : filename(fname), isOpened(false) {
+        std::lock_guard<std::mutex> lock(logMutex);
         logFile.open(filename, std::ios::out | std::ios::trunc);
+        isOpened = logFile.is_open();
     }
 
     ~ThreadSafeLogger() {
@@ -47,7 +57,7 @@ public:
 
     void log(const std::wstring& message) {
         std::lock_guard<std::mutex> lock(logMutex);
-        if (logFile.is_open()) {
+        if (isOpened && logFile.is_open()) {
             logFile << message << std::endl;
             logFile.flush();
         }
@@ -59,6 +69,21 @@ public:
             logFile << L"end close!" << std::endl;
             logFile.close();
         }
+        isOpened = false;
+    }
+
+    // Reopen the logger for a new compare run
+    void reopen() {
+        std::lock_guard<std::mutex> lock(logMutex);
+        if (logFile.is_open()) {
+            logFile.close();
+        }
+        logFile.open(filename, std::ios::out | std::ios::trunc);
+        isOpened = logFile.is_open();
+    }
+
+    bool isOpen() const {
+        return isOpened && logFile.is_open();
     }
 };
 
@@ -121,6 +146,19 @@ int FastCompare(const std::wstring& directory1, const std::wstring& directory2) 
     // Reset cancellation flag at start
     gbCancelOperation = 0;
 
+    if (!g_logger.isOpen()) {
+		g_logger.reopen();
+    }
+
+    if (!g_logger.isOpen()) {
+        g_printer.print(L"Failed to open log file for writing.");
+        return 0;
+	}
+    if(!isRootPath(directory1) || !isRootPath(directory2)) {
+        g_logger.log(L"Error: One or both directories are not root paths. Please select valid directories.");
+        g_logger.close();
+        return 0;
+	}
     if (!GetDirExist(directory1)) {
         g_logger.log(std::wstring(L"Directory does NOT exist: ") + directory1);
         g_logger.close();
@@ -166,7 +204,7 @@ int FastCompare(const std::wstring& directory1, const std::wstring& directory2) 
 
         g_logger.log(L"THREADS FINISHED JOINED=================================");
     }
-    catch (const std::exception& e) {
+    catch (const std::exception&) {  // Remove variable 'e' since it's unused
         g_logger.log(L"FATAL THREAD ERROR===========================================");
         g_logger.close();
         return 0;
@@ -209,6 +247,20 @@ int SlowCompare(const std::wstring& directory1, const std::wstring& directory2) 
 
     // Reset cancellation flag at start
     gbCancelOperation = 0;
+
+    if (!g_logger.isOpen()) {
+        g_logger.reopen();
+    }
+
+    if (!g_logger.isOpen()) {
+        g_printer.print(L"Failed to open log file for writing.");
+        return 0;
+    }
+    if (!isRootPath(directory1) || !isRootPath(directory2)) {
+        g_logger.log(L"Error: One or both directories are not root paths. Please select valid directories.");
+        g_logger.close();
+        return 0;
+    }
 
     if (!GetDirExist(directory1)) {
         g_logger.log(std::wstring(L"Directory does NOT exist: ") + directory1);
@@ -253,7 +305,7 @@ int SlowCompare(const std::wstring& directory1, const std::wstring& directory2) 
 
         g_logger.log(L"THREADS FINISHED JOINED=================================");
     }
-    catch (const std::exception& e) {
+    catch (const std::exception&) {  // Remove variable 'e' since it's unused
         g_logger.log(L"FATAL THREAD ERROR===========================================");
         g_logger.close();
         return 0;
@@ -302,7 +354,7 @@ SIZE_T GetCurrentMemoryUsage()
 }
 
 //
-//   FUNCTION: CheckMemoryLimit(SIZE_T currentUsage)
+//   FUNCTION: CheckMemoryLimit(SIZE_t currentUsage)
 //
 //   PURPOSE: Check if memory usage exceeds limits
 //   RETURNS: TRUE if within limits, FALSE if exceeded
@@ -341,10 +393,12 @@ SIZE_T EstimateItemMemory(const std::wstring& filename)
 //   FUNCTION: FindFiles(const std::wstring& directory)
 //
 //   PURPOSE: Get unique files from given directory & its sub dirs. Store to the List.
-//   NOTE: Now includes memory limit checking
+//   NOTE: Now includes memory limit checking. Cross-platform implementation.
 //
 void FindFiles(const std::wstring& directory, std::list<CFileListItem>& filesList)
 {
+#ifdef _WIN32
+    // ==================== WINDOWS IMPLEMENTATION ====================
     std::wstring tmp = directory + L"\\*";
     WIN32_FIND_DATAW file;
 
@@ -388,7 +442,7 @@ void FindFiles(const std::wstring& directory, std::list<CFileListItem>& filesLis
             }
             else
             {
-                ULONG sz = 0;
+                uint32_t sz = 0;
                 if ((sz = GetFileSize(tmp)) > 0)
                 {
                     // Skip duplicate check - just add all files, duplicates will be filtered during comparison
@@ -419,6 +473,94 @@ void FindFiles(const std::wstring& directory, std::list<CFileListItem>& filesLis
             FindFiles(*iter, filesList);
         }
     }
+
+#elif defined(__linux__) || defined(__APPLE__)
+    // ==================== LINUX/MACOS IMPLEMENTATION ====================
+    DIR* dir = opendir(WstringToUtf8(directory).c_str());
+    if (dir != nullptr)
+    {
+        std::vector<std::wstring> directories;
+        struct dirent* entry;
+        int fileCount = 0;
+
+        while ((entry = readdir(dir)) != nullptr)
+        {
+            // Check for cancellation
+            if (gbCancelOperation)
+            {
+                closedir(dir);
+                return;
+            }
+
+            // Check memory periodically (every 1000 files) instead of every file
+            if (++fileCount % 1000 == 0)
+            {
+                SIZE_T currentMemory = GetCurrentMemoryUsage();
+                if (!CheckMemoryLimit(currentMemory))
+                {
+                    g_logger.log(L"ERROR: Memory limit exceeded (" + std::to_wstring(currentMemory / (1024 * 1024)) + L" MB). Stopping directory scan.");
+                    closedir(dir);
+                    return;
+                }
+            }
+
+            // Skip . and ..
+            if ((wcscmp(Utf8ToWstring(entry->d_name).c_str(), L".") == 0) || 
+                (wcscmp(Utf8ToWstring(entry->d_name).c_str(), L"..") == 0))
+            {
+                continue;
+            }
+
+            std::wstring fullPath = directory + L"/" + Utf8ToWstring(entry->d_name);
+            struct stat fileStat;
+
+            if (stat(WstringToUtf8(fullPath).c_str(), &fileStat) == 0)
+            {
+                if (S_ISDIR(fileStat.st_mode))
+                {
+                    directories.push_back(fullPath);
+                }
+                else if (S_ISREG(fileStat.st_mode))
+                {
+                    uint32_t sz = fileStat.st_size;
+                    if (sz > 0)
+                    {
+                        // Get file timestamps - convert to Windows format for compatibility
+                        uint32_t lowTime = (uint32_t)(fileStat.st_mtime & 0xFFFFFFFF);
+                        uint32_t highTime = (uint32_t)((fileStat.st_mtime >> 32) & 0xFFFFFFFF);
+
+                        Add(Utf8ToWstring(entry->d_name), sz, lowTime, highTime, filesList);
+                    }
+                }
+            }
+        }
+
+        closedir(dir);
+
+        // Recursively search subdirectories
+        for (std::vector<std::wstring>::iterator iter = directories.begin(), end = directories.end(); 
+             iter != end; ++iter)
+        {
+            // Check memory periodically (every 10 directories)
+            static int recursiveCallCount = 0;
+            if (++recursiveCallCount % 10 == 0)
+            {
+                SIZE_T currentMemory = GetCurrentMemoryUsage();
+                if (!CheckMemoryLimit(currentMemory))
+                {
+                    g_logger.log(L"Memory limit reached. Stopped at directory: " + *iter);
+                    return;
+                }
+            }
+
+            FindFiles(*iter, filesList);
+        }
+    }
+
+#else
+    // ==================== UNSUPPORTED PLATFORM ====================
+    g_logger.log(L"ERROR: FindFiles() is not supported on this platform.");
+#endif
 }
 
 //
@@ -644,7 +786,7 @@ void DumpUniqueFiles(std::list<CFileListItem>& filesList) {
 void DumpUniqueFilesSlow(std::list<CFileListItem>& filesList) {
 #if _DEBUG
     g_logger.log(L"===================================== FAST COMPARE DONE============================================");
-	g_p.print(L"===================================== FAST COMPARE DONE============================================");
+	g_printer.print(L"===================================== FAST COMPARE DONE============================================");
 #endif
 
     if (isCheckShowFiles == TRUE) {
@@ -803,4 +945,17 @@ std::string WstringToUtf8(const std::wstring& wstr)
     std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
     return converter.to_bytes(wstr);
 #endif
+}
+
+namespace fs = std::filesystem;
+// Utility function to check if a path is absolute, in case 
+// the developer provides a way to select file on anonther platform.
+// use the to weed out absolute paths
+bool isAbsolutePath(const std::wstring& path) {
+    return fs::path(path).is_absolute();
+}
+
+//make sure it is NOT a relative path
+bool isRootPath(const std::wstring& path) {
+    return fs::path(path).root_name().empty() == false;
 }
