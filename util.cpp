@@ -556,6 +556,8 @@ void FindFiles(const std::wstring& directory, std::list<CFileListItem>& filesLis
 //
 void FindFilesSlow(const std::wstring& directory, std::list<CFileListItem>& filesList)
 {
+#ifdef _WIN32
+	// ==================== WINDOWS IMPLEMENTATION ====================
 	std::wstring tmp = directory + L"\\*";
 	WIN32_FIND_DATAW file;
 	PMSIFILEHASHINFO pFileHash = (PMSIFILEHASHINFO)malloc(sizeof(MSIFILEHASHINFO));
@@ -595,59 +597,150 @@ void FindFilesSlow(const std::wstring& directory, std::list<CFileListItem>& file
 				}
 			}
 
-            if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-            {
-                if ((!wcscmp(file.cFileName, L".")) || (!wcscmp(file.cFileName, L"..")))
+			if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+			{
+				if ((!wcscmp(file.cFileName, L".")) || (!wcscmp(file.cFileName, L"..")))
 
-                    continue;
-            }
-            
-            tmp = directory + L"\\" + std::wstring(file.cFileName);
-            
-            if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-            {
-                directories.push_back(tmp);
-            }
-            else
-            {
-                FileHash fileHash;
-                std::string utf8Filename = WstringToUtf8(tmp);
+					continue;
+			}
+			
+			tmp = directory + L"\\" + std::wstring(file.cFileName);
+			
+			if (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+			{
+				directories.push_back(tmp);
+			}
+			else
+			{
+				FileHash fileHash;
+				std::string utf8Filename = WstringToUtf8(tmp);
 
-                if (FileHasher::GetFileHash(utf8Filename, fileHash)) {
-                    AddSlow(file.cFileName, 
-                            fileHash.data[0], fileHash.data[1],
-                            fileHash.data[2], fileHash.data[3], 
-                            filesList);
-                }
-                else {
-                    g_logger.log(L"ERROR: Failed to compute hash for " + tmp);
-                }
-            }
-        } while (FindNextFileW(search_handle, &file));
+				if (FileHasher::GetFileHash(utf8Filename, fileHash)) {
+					AddSlow(file.cFileName, 
+							fileHash.data[0], fileHash.data[1],
+							fileHash.data[2], fileHash.data[3], 
+							filesList);
+				}
+				else {
+					g_logger.log(L"ERROR: Failed to compute hash for " + tmp);
+				}
+			}
+		} while (FindNextFileW(search_handle, &file));
 
-        FindClose(search_handle);
-        
-        // Recursively search subdirectories
-        for (std::vector<std::wstring>::iterator iter = directories.begin(), end = directories.end(); 
-             iter != end; ++iter)
-        {
-            // Check memory periodically
-            static int recursiveCallCount = 0;
-            if (++recursiveCallCount % 10 == 0)
-            {
-                SIZE_T currentMemory = GetCurrentMemoryUsage();
-                if (!CheckMemoryLimit(currentMemory))
-                {
-                    g_logger.log(L"Memory limit reached. Stopped at: " + *iter);
-                    break;
-                }
-            }
+		FindClose(search_handle);
+		
+		// Recursively search subdirectories
+		for (std::vector<std::wstring>::iterator iter = directories.begin(), end = directories.end(); 
+			 iter != end; ++iter)
+		{
+			// Check memory periodically
+			static int recursiveCallCount = 0;
+			if (++recursiveCallCount % 10 == 0)
+			{
+				SIZE_T currentMemory = GetCurrentMemoryUsage();
+				if (!CheckMemoryLimit(currentMemory))
+				{
+					g_logger.log(L"Memory limit reached. Stopped at: " + *iter);
+					break;
+				}
+			}
 
-            FindFilesSlow(*iter, filesList);
-        }
-    }
+			FindFilesSlow(*iter, filesList);
+		}
+	}
 
-    free(pFileHash);
+	free(pFileHash);
+
+#else
+	// ==================== POSIX/UNIX IMPLEMENTATION ====================
+	std::string dir_str = WstringToUtf8(directory);
+	DIR* dir = opendir(dir_str.c_str());
+	
+	if (!dir)
+	{
+		g_logger.log(L"ERROR: Failed to open directory: " + directory);
+		return;
+	}
+
+	std::vector<std::string> subdirectories;
+	int fileCount = 0;
+	struct dirent* entry;
+
+	while ((entry = readdir(dir)) != NULL)
+	{
+		// Check for cancellation
+		if (gbCancelOperation)
+		{
+			closedir(dir);
+			return;
+		}
+
+		// Check memory periodically (every 1000 files)
+		if (++fileCount % 1000 == 0)
+		{
+			SIZE_T currentMemory = GetCurrentMemoryUsage();
+			if (!CheckMemoryLimit(currentMemory))
+			{
+				g_logger.log(L"ERROR: Memory limit exceeded (" + std::to_wstring(currentMemory / (1024 * 1024)) + L" MB). Stopping scan.");
+				closedir(dir);
+				return;
+			}
+		}
+
+		// Skip "." and ".."
+		if ((strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0))
+			continue;
+
+		std::string full_path = dir_str + "/" + entry->d_name;
+		std::wstring full_path_w = Utf8ToWstring(full_path);
+		struct stat file_stat;
+
+		if (stat(full_path.c_str(), &file_stat) == 0)
+		{
+			if (S_ISDIR(file_stat.st_mode))
+			{
+				subdirectories.push_back(full_path);
+			}
+			else if (S_ISREG(file_stat.st_mode))
+			{
+				FileHash fileHash;
+				if (FileHasher::GetFileHash(full_path, fileHash)) {
+					std::wstring filename_w = Utf8ToWstring(std::string(entry->d_name));
+					AddSlow((LPCWSTR)filename_w.c_str(), 
+							fileHash.data[0], fileHash.data[1],
+							fileHash.data[2], fileHash.data[3], 
+							filesList);
+				}
+				else {
+					g_logger.log(L"ERROR: Failed to compute hash for " + full_path_w);
+				}
+			}
+		}
+	}
+
+	closedir(dir);
+
+	// Recursively search subdirectories
+	for (std::vector<std::string>::iterator iter = subdirectories.begin(), end = subdirectories.end();
+		 iter != end; ++iter)
+	{
+		// Check memory periodically
+		static int recursiveCallCount = 0;
+		if (++recursiveCallCount % 10 == 0)
+		{
+			SIZE_T currentMemory = GetCurrentMemoryUsage();
+			if (!CheckMemoryLimit(currentMemory))
+			{
+				std::wstring iter_w = Utf8ToWstring(*iter);
+				g_logger.log(L"Memory limit reached. Stopped at: " + iter_w);
+				break;
+			}
+		}
+
+		FindFilesSlow(Utf8ToWstring(*iter), filesList);
+	}
+
+#endif
 }
 
 void CompareFiles(std::list<CFileListItem>& filesList, std::list<CFileListItem>& filesListDirectory2) 
