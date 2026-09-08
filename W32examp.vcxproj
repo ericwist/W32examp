@@ -70,6 +70,14 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IncludePath>$(IncludePath)</IncludePath>
+    <LibraryPath>$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IncludePath>$(IncludePath)</IncludePath>
+    <LibraryPath>$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -104,14 +112,14 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);Msi.lib</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);$(ProjectDir)\lib\openssl\libssl.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -120,7 +128,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -129,17 +137,163 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);Msi.lib</AdditionalDependencies>
+      <AdditionalDependencies>$(CoreLibraryDependencies);$(ProjectDir)\lib\openssl\libssl.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="core\filehash.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="inc\openssl\aes.h" />
+    <ClInclude Include="inc\openssl\asn1.h" />
+    <ClInclude Include="inc\openssl\asn1err.h" />
+    <ClInclude Include="inc\openssl\asn1t.h" />
+    <ClInclude Include="inc\openssl\async.h" />
+    <ClInclude Include="inc\openssl\asyncerr.h" />
+    <ClInclude Include="inc\openssl\bio.h" />
+    <ClInclude Include="inc\openssl\bioerr.h" />
+    <ClInclude Include="inc\openssl\blowfish.h" />
+    <ClInclude Include="inc\openssl\bn.h" />
+    <ClInclude Include="inc\openssl\bnerr.h" />
+    <ClInclude Include="inc\openssl\buffer.h" />
+    <ClInclude Include="inc\openssl\buffererr.h" />
+    <ClInclude Include="inc\openssl\byteorder.h" />
+    <ClInclude Include="inc\openssl\camellia.h" />
+    <ClInclude Include="inc\openssl\cast.h" />
+    <ClInclude Include="inc\openssl\cmac.h" />
+    <ClInclude Include="inc\openssl\cmp.h" />
+    <ClInclude Include="inc\openssl\cmperr.h" />
+    <ClInclude Include="inc\openssl\cmp_util.h" />
+    <ClInclude Include="inc\openssl\cms.h" />
+    <ClInclude Include="inc\openssl\cmserr.h" />
+    <ClInclude Include="inc\openssl\comp.h" />
+    <ClInclude Include="inc\openssl\comperr.h" />
+    <ClInclude Include="inc\openssl\conf.h" />
+    <ClInclude Include="inc\openssl\conferr.h" />
+    <ClInclude Include="inc\openssl\configuration.h" />
+    <ClInclude Include="inc\openssl\conftypes.h" />
+    <ClInclude Include="inc\openssl\conf_api.h" />
+    <ClInclude Include="inc\openssl\core.h" />
+    <ClInclude Include="inc\openssl\core_dispatch.h" />
+    <ClInclude Include="inc\openssl\core_names.h" />
+    <ClInclude Include="inc\openssl\core_object.h" />
+    <ClInclude Include="inc\openssl\crmf.h" />
+    <ClInclude Include="inc\openssl\crmferr.h" />
+    <ClInclude Include="inc\openssl\crypto.h" />
+    <ClInclude Include="inc\openssl\cryptoerr.h" />
+    <ClInclude Include="inc\openssl\cryptoerr_legacy.h" />
+    <ClInclude Include="inc\openssl\ct.h" />
+    <ClInclude Include="inc\openssl\cterr.h" />
+    <ClInclude Include="inc\openssl\decoder.h" />
+    <ClInclude Include="inc\openssl\decodererr.h" />
+    <ClInclude Include="inc\openssl\des.h" />
+    <ClInclude Include="inc\openssl\dh.h" />
+    <ClInclude Include="inc\openssl\dherr.h" />
+    <ClInclude Include="inc\openssl\dsa.h" />
+    <ClInclude Include="inc\openssl\dsaerr.h" />
+    <ClInclude Include="inc\openssl\dtls1.h" />
+    <ClInclude Include="inc\openssl\ebcdic.h" />
+    <ClInclude Include="inc\openssl\ec.h" />
+    <ClInclude Include="inc\openssl\ecdh.h" />
+    <ClInclude Include="inc\openssl\ecdsa.h" />
+    <ClInclude Include="inc\openssl\ecerr.h" />
+    <ClInclude Include="inc\openssl\encoder.h" />
+    <ClInclude Include="inc\openssl\encodererr.h" />
+    <ClInclude Include="inc\openssl\engine.h" />
+    <ClInclude Include="inc\openssl\engineerr.h" />
+    <ClInclude Include="inc\openssl\err.h" />
+    <ClInclude Include="inc\openssl\ess.h" />
+    <ClInclude Include="inc\openssl\esserr.h" />
+    <ClInclude Include="inc\openssl\evp.h" />
+    <ClInclude Include="inc\openssl\evperr.h" />
+    <ClInclude Include="inc\openssl\e_os2.h" />
+    <ClInclude Include="inc\openssl\e_ostime.h" />
+    <ClInclude Include="inc\openssl\fipskey.h" />
+    <ClInclude Include="inc\openssl\fips_names.h" />
+    <ClInclude Include="inc\openssl\hmac.h" />
+    <ClInclude Include="inc\openssl\hpke.h" />
+    <ClInclude Include="inc\openssl\http.h" />
+    <ClInclude Include="inc\openssl\httperr.h" />
+    <ClInclude Include="inc\openssl\idea.h" />
+    <ClInclude Include="inc\openssl\indicator.h" />
+    <ClInclude Include="inc\openssl\kdf.h" />
+    <ClInclude Include="inc\openssl\kdferr.h" />
+    <ClInclude Include="inc\openssl\lhash.h" />
+    <ClInclude Include="inc\openssl\macros.h" />
+    <ClInclude Include="inc\openssl\md2.h" />
+    <ClInclude Include="inc\openssl\md4.h" />
+    <ClInclude Include="inc\openssl\md5.h" />
+    <ClInclude Include="inc\openssl\mdc2.h" />
+    <ClInclude Include="inc\openssl\ml_kem.h" />
+    <ClInclude Include="inc\openssl\modes.h" />
+    <ClInclude Include="inc\openssl\objects.h" />
+    <ClInclude Include="inc\openssl\objectserr.h" />
+    <ClInclude Include="inc\openssl\obj_mac.h" />
+    <ClInclude Include="inc\openssl\ocsp.h" />
+    <ClInclude Include="inc\openssl\ocsperr.h" />
+    <ClInclude Include="inc\openssl\opensslconf.h" />
+    <ClInclude Include="inc\openssl\opensslv.h" />
+    <ClInclude Include="inc\openssl\ossl_typ.h" />
+    <ClInclude Include="inc\openssl\params.h" />
+    <ClInclude Include="inc\openssl\param_build.h" />
+    <ClInclude Include="inc\openssl\pem.h" />
+    <ClInclude Include="inc\openssl\pem2.h" />
+    <ClInclude Include="inc\openssl\pemerr.h" />
+    <ClInclude Include="inc\openssl\pkcs12.h" />
+    <ClInclude Include="inc\openssl\pkcs12err.h" />
+    <ClInclude Include="inc\openssl\pkcs7.h" />
+    <ClInclude Include="inc\openssl\pkcs7err.h" />
+    <ClInclude Include="inc\openssl\proverr.h" />
+    <ClInclude Include="inc\openssl\provider.h" />
+    <ClInclude Include="inc\openssl\prov_ssl.h" />
+    <ClInclude Include="inc\openssl\quic.h" />
+    <ClInclude Include="inc\openssl\rand.h" />
+    <ClInclude Include="inc\openssl\randerr.h" />
+    <ClInclude Include="inc\openssl\rc2.h" />
+    <ClInclude Include="inc\openssl\rc4.h" />
+    <ClInclude Include="inc\openssl\rc5.h" />
+    <ClInclude Include="inc\openssl\ripemd.h" />
+    <ClInclude Include="inc\openssl\rsa.h" />
+    <ClInclude Include="inc\openssl\rsaerr.h" />
+    <ClInclude Include="inc\openssl\safestack.h" />
+    <ClInclude Include="inc\openssl\seed.h" />
+    <ClInclude Include="inc\openssl\self_test.h" />
+    <ClInclude Include="inc\openssl\sha.h" />
+    <ClInclude Include="inc\openssl\srp.h" />
+    <ClInclude Include="inc\openssl\srtp.h" />
+    <ClInclude Include="inc\openssl\ssl.h" />
+    <ClInclude Include="inc\openssl\ssl2.h" />
+    <ClInclude Include="inc\openssl\ssl3.h" />
+    <ClInclude Include="inc\openssl\sslerr.h" />
+    <ClInclude Include="inc\openssl\sslerr_legacy.h" />
+    <ClInclude Include="inc\openssl\stack.h" />
+    <ClInclude Include="inc\openssl\store.h" />
+    <ClInclude Include="inc\openssl\storeerr.h" />
+    <ClInclude Include="inc\openssl\symhacks.h" />
+    <ClInclude Include="inc\openssl\thread.h" />
+    <ClInclude Include="inc\openssl\tls1.h" />
+    <ClInclude Include="inc\openssl\trace.h" />
+    <ClInclude Include="inc\openssl\ts.h" />
+    <ClInclude Include="inc\openssl\tserr.h" />
+    <ClInclude Include="inc\openssl\txt_db.h" />
+    <ClInclude Include="inc\openssl\types.h" />
+    <ClInclude Include="inc\openssl\ui.h" />
+    <ClInclude Include="inc\openssl\uierr.h" />
+    <ClInclude Include="inc\openssl\whrlpool.h" />
+    <ClInclude Include="inc\openssl\x509.h" />
+    <ClInclude Include="inc\openssl\x509err.h" />
+    <ClInclude Include="inc\openssl\x509v3.h" />
+    <ClInclude Include="inc\openssl\x509v3err.h" />
+    <ClInclude Include="inc\openssl\x509_acert.h" />
+    <ClInclude Include="inc\openssl\x509_vfy.h" />
+    <ClInclude Include="inc\openssl\__DECC_INCLUDE_EPILOGUE.H" />
+    <ClInclude Include="inc\openssl\__DECC_INCLUDE_PROLOGUE.H" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="util.h" />
     <ClInclude Include="W32examp.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="inc\openssl\applink.c" />
     <ClCompile Include="util.cpp" />
     <ClCompile Include="W32examp.cpp" />
   </ItemGroup>
@@ -152,6 +306,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="CROSS_PLATFORM_ANALYSIS.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="lib\openssl\libssl.lib" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

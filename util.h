@@ -16,6 +16,7 @@
 #include <filesystem>
 #include <algorithm>
 #include <cctype>
+#include "core/filehash.h"
 
 // This is a class to store the file items, meaning file properties and/or hashs
 class CFileListItem

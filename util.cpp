@@ -29,9 +29,6 @@
 #include <dirent.h>
 #endif
 
-//remark this out to turn off threads
-#define THREADED_CALLS
-
 //Declare my list of file objects globally in the file only
 std::list<CFileListItem> FilesUnique;
 std::list<CFileListItem> FilesUniqueDirectory2;
@@ -179,7 +176,6 @@ int FastCompare(const std::wstring& directory1, const std::wstring& directory2) 
     //start time
     uint64_t totaltime = 0;
     uint64_t timestart = GetTickCount64();
-#ifdef THREADED_CALLS
     try {
         unsigned int coreCount = GetCoreCount();
         g_logger.log(L"Available CPU cores: " + std::to_wstring(coreCount));
@@ -209,11 +205,6 @@ int FastCompare(const std::wstring& directory1, const std::wstring& directory2) 
         g_logger.close();
         return 0;
     }
-    //END THREADS
-#else
-    FindFiles(directory1, FilesUnique);
-    FindFiles(directory2, FilesUniqueDirectory2);
-#endif
 
     // Check if operation was cancelled
     if (gbCancelOperation) {
@@ -280,7 +271,6 @@ int SlowCompare(const std::wstring& directory1, const std::wstring& directory2) 
     FilesUnique.clear();
     uint64_t totaltime = 0;
     uint64_t timestart = GetTickCount64();
-#ifdef THREADED_CALLS
     try {
         unsigned int coreCount = GetCoreCount();
         g_logger.log(L"Available CPU cores: " + std::to_wstring(coreCount));
@@ -310,10 +300,6 @@ int SlowCompare(const std::wstring& directory1, const std::wstring& directory2) 
         g_logger.close();
         return 0;
     }
-#else
-    FindFilesSlow(directory1, FilesUnique);
-    FindFilesSlow(directory2, FilesUniqueDirectory2); 
-#endif
 
     // Check if operation was cancelled
     if (gbCancelOperation) {
@@ -624,23 +610,17 @@ void FindFilesSlow(const std::wstring& directory, std::list<CFileListItem>& file
             }
             else
             {
-                memset(pFileHash, 0, sizeof(MSIFILEHASHINFO));
-                pFileHash->dwFileHashInfoSize = sizeof(MSIFILEHASHINFO);
-                UINT res = MsiGetFileHashW(tmp.c_str(), 0, pFileHash);
+                FileHash fileHash;
+                std::string utf8Filename = WstringToUtf8(tmp);
 
-                if (res == ERROR_SUCCESS)
-                {
-                    // Skip duplicate check - just add all files, duplicates will be filtered during comparison
-                    AddSlow(file.cFileName, pFileHash->dwData[0], pFileHash->dwData[1], 
-                           pFileHash->dwData[2], pFileHash->dwData[3], filesList);
+                if (FileHasher::GetFileHash(utf8Filename, fileHash)) {
+                    AddSlow(file.cFileName, 
+                            fileHash.data[0], fileHash.data[1],
+                            fileHash.data[2], fileHash.data[3], 
+                            filesList);
                 }
-                else if (res == ERROR_FILE_NOT_FOUND)
-                {
-                    g_logger.log(L"FILE[" + std::wstring(file.cFileName) + L"] NOT FOUND...");
-                }
-                else if (res == ERROR_ACCESS_DENIED)
-                {
-                    g_logger.log(L"FILE[" + std::wstring(file.cFileName) + L"] ACCESS DENIED...");
+                else {
+                    g_logger.log(L"ERROR: Failed to compute hash for " + tmp);
                 }
             }
         } while (FindNextFileW(search_handle, &file));
