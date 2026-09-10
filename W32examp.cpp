@@ -9,6 +9,7 @@
 #include "framework.h"
 #include "W32examp.h"
 #include "util.h"
+#include <stdarg.h>  // Add at top with other includes
 
 #define MAX_LOADSTRING 100
 
@@ -43,7 +44,7 @@ volatile BOOL gbCancelOperation = FALSE;
 int windowX, windowY, windowWidth, windowHeight, editBoxWidth, editBoxHeight, listBoxHeight;
 
 // Add this line in your implementation file
-ThreadSafePrinter g_printer;
+//ThreadSafePrinter g_printer;
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -182,7 +183,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     RECT rc;
     hInst = hInstance; // Store instance handle in our global variable
     //moveWindowUpperLeft((HWND)NULL);
-
+    
     HWND hDTWnd = GetDesktopWindow();
     GetWindowRect(hDTWnd, &rc);
     windowX = 0;
@@ -312,7 +313,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    ShowWindow(hWnd, SW_SHOW);
    UpdateWindow(hWnd);
    OutputDebugString(L"Ready 1...\n");
-   g_printer.print(L"Ready...");
+   g_outputManager.RegisterCallback(Win32GuiOutputCallback, nullptr);
+   g_outputManager.SendOutput(L"Ready...");
    return TRUE;
 }
 
@@ -396,12 +398,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 szDirectory1 = buffer;
                 szDirectory1 = RemoveSpacesAndNonPrintable(szDirectory1);
                 if (szDirectory1.empty()) {
-                    g_printer.print(L"Error: Directory1 is empty. Please select valid directory.");
+                    g_outputManager.SendOutput(L"Error: Directory1 is empty. Please select valid directory.");
                     EnableMenusAndButtons(hWnd);
                     return 0;
                 }
                 if (!isRootPath(szDirectory1)) {
-                    g_printer.print(L"Error: Directory 1 is not a root path. Please select a valid directory.");
+                    g_outputManager.SendOutput(L"Error: Directory 1 is not a root path. Please select a valid directory.");
                     EnableMenusAndButtons(hWnd);
                     return 0;
                 }
@@ -410,12 +412,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 szDirectory2 = buffer;
 				szDirectory2 = RemoveSpacesAndNonPrintable(szDirectory2);
                 if (szDirectory2.empty()) {
-                    g_printer.print(L"Error: Directory2 is empty. Please select valid directory.");
+                    g_outputManager.SendOutput(L"Error: Directory2 is empty. Please select valid directory.");
                     EnableMenusAndButtons(hWnd);
                     return 0;
                 }
                 if (!isRootPath(szDirectory2)) {
-                    g_printer.print(L"Error: Directory2  is not a root path. Please select a valid directory.");
+                    g_outputManager.SendOutput(L"Error: Directory2  is not a root path. Please select a valid directory.");
                     EnableMenusAndButtons(hWnd);
                     return 0;
                 }
@@ -425,7 +427,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 else {
                     isCheckShowFiles = FALSE;
                 }
-                g_printer.print(L"Starting fast comparison... please wait...");
+                g_outputManager.SendOutput(L"Starting fast comparison... please wait...");
                 FastCompare(szDirectory1, szDirectory2);
                 EnableMenusAndButtons(hWnd);
             }
@@ -438,12 +440,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 szDirectory1 = buffer;
                 szDirectory1 = RemoveSpacesAndNonPrintable(szDirectory1);
                 if (szDirectory1.empty()) {
-                    g_printer.print(L"Error: Directory1 is empty. Please select valid directory.");
+                    g_outputManager.SendOutput(L"Error: Directory1 is empty. Please select valid directory.");
                     EnableMenusAndButtons(hWnd);
                     return 0;
                 }
                 if (!isRootPath(szDirectory1)) {
-                    g_printer.print(L"Error: Directory 1 is not a root path. Please select a valid directory.");
+                    g_outputManager.SendOutput(L"Error: Directory 1 is not a root path. Please select a valid directory.");
                     EnableMenusAndButtons(hWnd);
                     return 0;
                 }
@@ -452,12 +454,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 szDirectory2 = buffer;
                 szDirectory2 = RemoveSpacesAndNonPrintable(szDirectory2);
                 if (szDirectory2.empty()) {
-                    g_printer.print(L"Error: Directory2 is empty. Please select valid directory.");
+                    g_outputManager.SendOutput(L"Error: Directory2 is empty. Please select valid directory.");
                     EnableMenusAndButtons(hWnd);
                     return 0;
                 }
                 if (!isRootPath(szDirectory2)) {
-                    g_printer.print(L"Error: Directory2  is not a root path. Please select a valid directory.");
+                    g_outputManager.SendOutput(L"Error: Directory2  is not a root path. Please select a valid directory.");
                     EnableMenusAndButtons(hWnd);
                     return 0;
                 }
@@ -467,7 +469,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 else {
                     isCheckShowFiles = FALSE;
                 }
-                g_printer.print(L"Starting slow comparison... please wait...");
+                g_outputManager.SendOutput(L"Starting slow comparison... please wait...");
                 SlowCompare(szDirectory1, szDirectory2);
                 EnableMenusAndButtons(hWnd);
             }
@@ -491,7 +493,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case ID_FILE_STOPCANCELOP:
             {
                 gbCancelOperation = TRUE;
-                g_printer.print(L"Stop requested - canceling current operation...");
+                g_outputManager.SendOutput(L"Stop requested - canceling current operation...");
             }
             break;
             case IDM_ABOUT:
@@ -603,6 +605,43 @@ void printToScreen(WCHAR* FormattedStr)
             }
 
             int pos = (int)SendMessage(ghListBox, LB_ADDSTRING, 0, (LPARAM)FormattedStr);
+            SendMessage(ghListBox, LB_SETITEMDATA, pos, (LPARAM)0);
+            SendMessage(ghListBox, LB_SETCURSEL, pos, (LPARAM)0);
+        }
+    }
+    catch (...)
+    {
+    }
+}
+
+// Global output manager instance
+OutputManager g_outputManager;
+
+// Default Win32 GUI callback implementation
+void Win32GuiOutputCallback(const wchar_t* message, void* context)
+{
+    try
+    {
+        if (ghListBox != (HWND)NULL)
+        {
+            // Force List Box to bottom
+            int max;
+            int min;
+            GetScrollRange(ghListBox, SB_VERT, &min, &max);
+            SetScrollPos(ghListBox, SB_VERT, max, TRUE);
+            SendMessage(ghListBox, WM_VSCROLL, SB_BOTTOM, 0);
+            int count = (int)SendMessage(ghListBox, LB_GETCOUNT, (WPARAM)0, (LPARAM)0);
+            SendMessage(ghListBox, LB_SETCARETINDEX, (WPARAM)(count - 1), (LPARAM)0);
+            UpdateWindow(ghListBox);
+
+            int idx = (int)SendMessage(ghListBox, LB_GETCARETINDEX, (WPARAM)0, (LPARAM)0);
+            if (idx > 2000)
+            {
+                // Clear list box
+                SendMessage(ghListBox, LB_RESETCONTENT, (WPARAM)0, (LPARAM)0);
+            }
+
+            int pos = (int)SendMessage(ghListBox, LB_ADDSTRING, 0, (LPARAM)message);
             SendMessage(ghListBox, LB_SETITEMDATA, pos, (LPARAM)0);
             SendMessage(ghListBox, LB_SETCURSEL, pos, (LPARAM)0);
         }

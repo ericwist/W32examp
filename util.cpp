@@ -148,7 +148,7 @@ int FastCompare(const std::wstring& directory1, const std::wstring& directory2) 
     }
 
     if (!g_logger.isOpen()) {
-        g_printer.print(L"Failed to open log file for writing.");
+        g_outputManager.SendOutput(L"Failed to open log file for writing.");
         return 0;
 	}
     if(!isRootPath(directory1) || !isRootPath(directory2)) {
@@ -244,7 +244,7 @@ int SlowCompare(const std::wstring& directory1, const std::wstring& directory2) 
     }
 
     if (!g_logger.isOpen()) {
-        g_printer.print(L"Failed to open log file for writing.");
+        g_outputManager.SendOutput(L"Failed to open log file for writing.");
         return 0;
     }
     if (!isRootPath(directory1) || !isRootPath(directory2)) {
@@ -825,7 +825,7 @@ void CompareFilesSlow(std::list<CFileListItem>& filesList, std::list<CFileListIt
 void DumpUniqueFiles(std::list<CFileListItem>& filesList) {
 #if _DEBUG
     g_logger.log(L"===================================== FAST COMPARE DONE============================================");
-	g_printer.print(L"===================================== FAST COMPARE DONE============================================");
+	g_outputManager.SendOutput(L"===================================== FAST COMPARE DONE============================================");
 #endif
     if (isCheckShowFiles == TRUE) {
         int itemCount = 0;
@@ -838,18 +838,18 @@ void DumpUniqueFiles(std::list<CFileListItem>& filesList) {
                 if (gbCancelOperation)
                 {
                     g_logger.log(L"Cancelled while displaying files");
-                    g_printer.print(L"Cancelled while displaying files");
+                    g_outputManager.SendOutput(L"Cancelled while displaying files");
                     return;
                 }
             }
             std::wstring outstr = L"FILE[" + i->m_Filename + L"]::SIZE[" + std::to_wstring(i->m_Size) + L"]::LASTWRITE[" + std::to_wstring(i->m_dwLowDateTime) + L"." + std::to_wstring(i->m_dwHighDateTime) + L"]";
             g_logger.log(outstr);
-            g_printer.print(outstr);
+            g_outputManager.SendOutput(outstr);
         }
     }
     std::wstring endstr = L"**FAST COMPARE END RESULT [" + std::to_wstring(filesList.size()) + L"] UNIQUE FILES**";
     g_logger.log(endstr);
-    g_printer.print(endstr);
+    g_outputManager.SendOutput(endstr);
     
 #if _DEBUG
     g_logger.log(L"=================================================================================================");
@@ -859,7 +859,7 @@ void DumpUniqueFiles(std::list<CFileListItem>& filesList) {
 void DumpUniqueFilesSlow(std::list<CFileListItem>& filesList) {
 #if _DEBUG
     g_logger.log(L"===================================== FAST COMPARE DONE============================================");
-	g_printer.print(L"===================================== FAST COMPARE DONE============================================");
+	g_outputManager.SendOutput(L"===================================== FAST COMPARE DONE============================================");
 #endif
 
     if (isCheckShowFiles == TRUE) {
@@ -873,19 +873,19 @@ void DumpUniqueFilesSlow(std::list<CFileListItem>& filesList) {
                 if (gbCancelOperation)
                 {
                     g_logger.log(L"Cancelled while displaying files");
-                    g_printer.print(L"Cancelled while displaying files");
+                    g_outputManager.SendOutput(L"Cancelled while displaying files");
                     return;
                 }
             }
 			std::wstring outstr = L"FILE[" + i->m_Filename + L"]::H1[" + std::to_wstring(i->m_dwHash[0]) + L"]::H2[" + std::to_wstring(i->m_dwHash[1]) + L"]::H3[" + std::to_wstring(i->m_dwHash[2]) + L"]::H4[" + std::to_wstring(i->m_dwHash[3]) + L"]";
             g_logger.log(outstr);
-			g_printer.print(outstr);
+			g_outputManager.SendOutput(outstr);
         }
     }
     
     std::wstring endstr = L"**SLOW COMPARE END RESULT [" + std::to_wstring(filesList.size()) + L"] UNIQUE FILES**";
     g_logger.log(endstr);
-    g_printer.print(endstr);
+    g_outputManager.SendOutput(endstr);
 #if _DEBUG
     g_logger.log(L"=================================================================================================");
 #endif

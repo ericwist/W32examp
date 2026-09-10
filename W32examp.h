@@ -24,35 +24,6 @@ extern volatile BOOL gbCancelOperation;  // Flag to cancel current operation
 #define WARNING_MEMORY_MB 400  // Warning threshold (80% of max)
 void printToScreen(WCHAR* FormattedStr);
 
-// Thread-safe printer class
-class ThreadSafePrinter {
-private:
-    std::mutex printMutex;
-    std::queue<std::wstring> messageQueue;
-
-public:
-    ThreadSafePrinter() {}
-
-    ~ThreadSafePrinter() {
-        close();
-    }
-
-    void print(const std::wstring& message) {
-        std::lock_guard<std::mutex> lock(printMutex);
-        if (ghListBox != NULL) {
-            printToScreen(const_cast<WCHAR*>(message.c_str()));
-        }
-    }
-
-    void close() {
-        std::lock_guard<std::mutex> lock(printMutex);
-        // No resources to clean up for printer
-    }
-};
-
-// Global thread-safe printer instance
-extern ThreadSafePrinter g_printer;
-
 // Memory monitoring functions
 SIZE_T GetCurrentMemoryUsage();
 BOOL CheckMemoryLimit(SIZE_T currentUsage);
@@ -112,6 +83,69 @@ inline int GetDirRequestorLoad(WCHAR* Path, size_t size) {
     }
     return FALSE;
 }
+
+/*
+ * Output Callback Interface for Cross-Platform GUI Integration
+ * 
+ * This interface allows platform-agnostic code to send output messages
+ * to the GUI without direct Win32 dependencies.
+ */
+
+// Callback function type for output messages
+typedef void (*OutputCallback)(const wchar_t* message, void* context);
+
+// Output Manager class - handles all output callbacks
+class OutputManager {
+private:
+    OutputCallback callback;
+    void* context;
+    std::mutex callbackMutex;
+
+public:
+    OutputManager() : callback(nullptr), context(nullptr) {}
+
+    ~OutputManager() {
+        close();
+    }
+
+    // Register an output callback
+    void RegisterCallback(OutputCallback cb, void* ctx = nullptr) {
+        std::lock_guard<std::mutex> lock(callbackMutex);
+        callback = cb;
+        context = ctx;
+    }
+
+    // Send output message through registered callback
+    void SendOutput(const std::wstring& message) {
+        std::lock_guard<std::mutex> lock(callbackMutex);
+        if (callback != nullptr) {
+            callback(message.c_str(), context);
+        }
+    }
+
+    // Send formatted output
+    void SendFormattedOutput(const wchar_t* format, ...) {
+        wchar_t buffer[4096];
+        va_list args;
+        va_start(args, format);
+        vswprintf_s(buffer, sizeof(buffer) / sizeof(wchar_t), format, args);
+        va_end(args);
+        SendOutput(buffer);
+    }
+
+    // Clear/close the callback
+    void close() {
+        std::lock_guard<std::mutex> lock(callbackMutex);
+        callback = nullptr;
+        context = nullptr;
+    }
+};
+
+// Global output manager instance
+extern OutputManager g_outputManager;
+
+// Default Win32 GUI callback implementation
+void Win32GuiOutputCallback(const wchar_t* message, void* context);
 
 
 
