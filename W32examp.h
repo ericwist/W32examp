@@ -115,11 +115,19 @@ public:
         context = ctx;
     }
 
-    // Send output message through registered callback
+    // Overload for std::wstring
     void SendOutput(const std::wstring& message) {
         std::lock_guard<std::mutex> lock(callbackMutex);
         if (callback != nullptr) {
             callback(message.c_str(), context);
+        }
+    }
+
+    // Overload for raw wchar_t*
+    void SendOutput(const wchar_t* message) {
+        std::lock_guard<std::mutex> lock(callbackMutex);
+        if (callback != nullptr) {
+            callback(message, context);
         }
     }
 
