@@ -13,6 +13,7 @@
 #include <mutex>
 #include <queue>
 #include <string>
+#include <cstdint>  // Add this for std::uint64_t
 
 // Declare list box handle globally so i can access it from utility functions
 extern HWND ghListBox;
@@ -24,9 +25,9 @@ extern volatile BOOL gbCancelOperation;  // Flag to cancel current operation
 #define WARNING_MEMORY_MB 400  // Warning threshold (80% of max)
 void printToScreen(WCHAR* FormattedStr);
 
-// Memory monitoring functions
-SIZE_T GetCurrentMemoryUsage();
-BOOL CheckMemoryLimit(SIZE_T currentUsage);
+// Memory monitoring functions (changed from SIZE_T to std::uint64_t for cross-platform)
+std::uint64_t GetCurrentMemoryUsage();
+BOOL CheckMemoryLimit(std::uint64_t currentUsage);
 
 //force this app to Idle and process messages from other apps and the system
 inline bool Idle(DWORD ticks = 0)

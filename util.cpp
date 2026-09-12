@@ -337,7 +337,7 @@ int SlowCompare(const std::wstring& directory1, const std::wstring& directory2) 
 //   RETURNS: Memory usage in bytes, or 0 if unable to determine
 //   NOTE:    Returns RSS (Resident Set Size) on all platforms for consistency
 //
-SIZE_T GetCurrentMemoryUsage()
+std::uint64_t GetCurrentMemoryUsage()
 {
 #ifdef _WIN32
     // Windows: Working Set Size (physical memory)
@@ -365,7 +365,7 @@ SIZE_T GetCurrentMemoryUsage()
             if (line.substr(0, 6) == "VmRSS:")
             {
                 std::istringstream iss(line.substr(6));
-                SIZE_T sizeKB;
+                std::uint64_t sizeKB;
                 if (iss >> sizeKB)
                 {
                     return sizeKB * 1024;  // Convert KB to bytes
@@ -401,15 +401,15 @@ SIZE_T GetCurrentMemoryUsage()
 }
 
 //
-//   FUNCTION: CheckMemoryLimit(SIZE_t currentUsage)
+//   FUNCTION: CheckMemoryLimit(std::uint64_t currentUsage)
 //
 //   PURPOSE: Check if memory usage exceeds limits
 //   RETURNS: TRUE if within limits, FALSE if exceeded
 //
-int CheckMemoryLimit(SIZE_T currentUsage)
+int CheckMemoryLimit(std::uint64_t currentUsage)
 {
-    SIZE_T maxBytes = (SIZE_T)MAX_MEMORY_MB * 1024 * 1024;
-    SIZE_T warningBytes = (SIZE_T)WARNING_MEMORY_MB * 1024 * 1024;
+    std::uint64_t maxBytes = (std::uint64_t)MAX_MEMORY_MB * 1024 * 1024;
+    std::uint64_t warningBytes = (std::uint64_t)WARNING_MEMORY_MB * 1024 * 1024;
     
     if (currentUsage > maxBytes)
     {
