@@ -9,24 +9,30 @@
 #include "util.h"
 #include <locale>
 #include <codecvt>
-#include <msi.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <psapi.h>
-#include <process.h>
 #include <unordered_set>
 #include <unordered_map>
 #include <chrono>
 #include <thread>
 #include <fstream>
+#include <sstream>
 #include <mutex>
 #include <queue>
 #include <cstdint> 
-#ifdef __linux__
+
+#ifdef _WIN32
+#include <msi.h>
+#include <psapi.h>
+#include <process.h>
+#elif defined(__linux__)
 #include <dirent.h>
-#endif
-#ifdef __APPLE__
+#include <sys/types.h>
+#include <sys/stat.h>
+#elif defined(__APPLE__)
 #include <dirent.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <mach/mach.h>
+#include <mach/task.h>
 #endif
 
 //Declare my list of file objects globally in the file only
@@ -327,16 +333,71 @@ int SlowCompare(const std::wstring& directory1, const std::wstring& directory2) 
 //
 //   FUNCTION: GetCurrentMemoryUsage()
 //
-//   PURPOSE: Get current process memory usage in bytes
+//   PURPOSE: Get current process memory usage in bytes (platform-agnostic)
+//   RETURNS: Memory usage in bytes, or 0 if unable to determine
+//   NOTE:    Returns RSS (Resident Set Size) on all platforms for consistency
 //
 SIZE_T GetCurrentMemoryUsage()
 {
+#ifdef _WIN32
+    // Windows: Working Set Size (physical memory)
     PROCESS_MEMORY_COUNTERS pmc;
     if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc)))
     {
         return pmc.WorkingSetSize;
     }
     return 0;
+
+#elif defined(__linux__)
+    // Linux: Parse /proc/self/status for VmRSS
+    try
+    {
+        std::ifstream statusFile("/proc/self/status");
+        if (!statusFile.is_open())
+        {
+            return 0;
+        }
+
+        std::string line;
+        while (std::getline(statusFile, line))
+        {
+            // Look for "VmRSS:" line (RSS in kilobytes)
+            if (line.substr(0, 6) == "VmRSS:")
+            {
+                std::istringstream iss(line.substr(6));
+                SIZE_T sizeKB;
+                if (iss >> sizeKB)
+                {
+                    return sizeKB * 1024;  // Convert KB to bytes
+                }
+                break;
+            }
+        }
+    }
+    catch (const std::exception&)
+    {
+        // Log silently or return 0
+    }
+    return 0;
+
+#elif defined(__APPLE__)
+    // macOS: Use Mach kernel task info
+    struct mach_task_basic_info info = {};
+    mach_msg_type_number_t infoCount = MACH_TASK_BASIC_INFO_COUNT;
+
+    if (task_info(mach_task_self(),
+                  MACH_TASK_BASIC_INFO,
+                  (task_info_t)&info,
+                  &infoCount) == KERN_SUCCESS)
+    {
+        return info.resident_size;  // Bytes
+    }
+    return 0;
+
+#else
+    // Unknown platform: Return 0
+    return 0;
+#endif
 }
 
 //
