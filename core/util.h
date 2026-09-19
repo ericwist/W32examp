@@ -6,8 +6,8 @@
 * Jul 25, 2023
 *****************/
 #pragma once
-#include "framework.h"
-#include "W32examp.h"
+#include "../framework.h"
+#include "../W32examp.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -16,7 +16,7 @@
 #include <filesystem>
 #include <algorithm>
 #include <cctype>
-#include "core/filehash.h"
+#include "filehash.h"
 
 // This is a class to store the file items, meaning file properties and/or hashs
 class CFileListItem
@@ -76,9 +76,6 @@ public:
 
 private:
 };
-
-
-
 
 bool isAbsolutePath(const std::wstring& path);
 bool isRootPath(const std::wstring& path);

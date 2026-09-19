@@ -8,7 +8,7 @@
 
 #include "framework.h"
 #include "W32examp.h"
-#include "util.h"
+#include "core/util.h"
 #include <stdarg.h>  // Add at top with other includes
 
 #define MAX_LOADSTRING 100

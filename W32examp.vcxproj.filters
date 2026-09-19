@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="core">
+      <UniqueIdentifier>{2c8a9118-0b11-46fa-87ce-79bd74925cb5}</UniqueIdentifier>
+    </Filter>
     <Filter Include="inc">
       <UniqueIdentifier>{64e368e1-f194-4266-af6d-28f349bae153}</UniqueIdentifier>
     </Filter>
@@ -37,12 +40,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="W32examp.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="util.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="core\filehash.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="inc\openssl\__DECC_INCLUDE_EPILOGUE.H">
@@ -477,16 +474,22 @@
     <ClInclude Include="inc\openssl\x509v3err.h">
       <Filter>inc\openssl</Filter>
     </ClInclude>
+    <ClInclude Include="core\util.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\filehash.h">
+      <Filter>core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="W32examp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="util.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="inc\openssl\applink.c">
       <Filter>inc\openssl</Filter>
+    </ClCompile>
+    <ClCompile Include="core\util.cpp">
+      <Filter>core</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
